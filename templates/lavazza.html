@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Lavazza Coffee - Weekly Stock Takes{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Lavazza Coffee Tracking</h2>
+
+<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <p style="color: #333; font-size: 14px;">
+        <strong>Track fresh-made coffee:</strong> Record Lavazza deliveries, actual count, and coffee sales.
+    </p>
+</div>
+
+<form id="lavazzaForm">
+    <div class="form-row">
+        <div class="form-group">
+            <label for="date">Date *</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+        <div class="form-group">
+            <label for="deliveries">Deliveries</label>
+            <input type="number" id="deliveries" name="deliveries" min="0" value="0">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="actualCount">Actual Count</label>
+            <input type="number" id="actualCount" name="actualCount" min="0" value="0">
+        </div>
+        <div class="form-group">
+            <label for="coffeeSold">Coffees Sold *</label>
+            <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+        </div>
+    </div>
+
+    <button type="submit">Save Lavazza Entry</button>
+    <span class="error-message" id="errorMsg"></span>
+    <span class="success-message" id="successMsg"></span>
+</form>
+
+{% if records %}
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Deliveries</th>
+            <th>Actual Count</th>
+            <th>Coffees Sold</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+        <tr>
+            <td>{{ record.date }}</td>
+            <td>{{ record.deliveries }}</td>
+            <td>{{ record.actualCount }}</td>
+            <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
+            <td>
+                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/lavazza/{{ record.id }}', {{ record.id }})">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+    <h3>No entries yet</h3>
+    <p>Add your first Lavazza entry using the form above</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('lavazzaForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = {
+            date: document.getElementById('date').value,
+            deliveries: document.getElementById('deliveries').value,
+            actualCount: document.getElementById('actualCount').value,
+            coffeeSold: document.getElementById('coffeeSold').value
+        };
+
+        try {
+            const response = await fetch('/api/lavazza', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                document.getElementById('lavazzaForm').reset();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.error, 'error');
+            }
+        } catch (error) {
+            showAlert('An error occurred: ' + error.message, 'error');
+        }
+    });
+
+    // Set today's date as default
+    document.getElementById('date').valueAsDate = new Date();
+</script>
+{% endblock %}

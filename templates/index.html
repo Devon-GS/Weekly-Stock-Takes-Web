@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Weekly Stock Takes{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Dashboard</h2>
+
+<div class="stats">
+    <div class="stat-card">
+        <h3>Milk Usage Entries</h3>
+        <div class="value">{{ milk_count }}</div>
+    </div>
+    <div class="stat-card" style="border-left-color: #f59e0b;">
+        <h3>Bean Coffee Entries</h3>
+        <div class="value">{{ bean_count }}</div>
+    </div>
+    <div class="stat-card" style="border-left-color: #10b981;">
+        <h3>Lavazza Entries</h3>
+        <div class="value">{{ lavazza_count }}</div>
+    </div>
+    <div class="stat-card" style="border-left-color: #ef4444;">
+        <h3>Sugar Entries</h3>
+        <div class="value">{{ sugar_count }}</div>
+    </div>
+</div>
+
+<div style="background: #f9fafb; padding: 30px; border-radius: 10px; margin-top: 30px;">
+    <h3 style="color: #333; margin-bottom: 15px; font-size: 16px;">Quick Navigation</h3>
+    <p style="color: #666; margin-bottom: 20px; line-height: 1.6;">
+        Welcome to the Weekly Stock Takes management system. Use the navigation menu above to access each category:
+    </p>
+    <ul style="list-style: none; color: #555;">
+        <li style="margin-bottom: 12px;">
+            <strong>Milk Usage:</strong> Track milk bottle consumption (2L, 1L, 500ml)
+        </li>
+        <li style="margin-bottom: 12px;">
+            <strong>Bean Coffee:</strong> Monitor vending machine coffee sales
+        </li>
+        <li style="margin-bottom: 12px;">
+            <strong>Lavazza Coffee:</strong> Manage fresh-made coffee inventory
+        </li>
+        <li style="margin-bottom: 12px;">
+            <strong>Sugar & Sweetener:</strong> Track sugar and sweetener usage
+        </li>
+    </ul>
+</div>
+{% endblock %}

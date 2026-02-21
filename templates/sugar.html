@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Sugar & Sweetener - Weekly Stock Takes{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Sugar & Sweetener Tracking</h2>
+
+<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <p style="color: #333; font-size: 14px;">
+        <strong>Track sugar and sweetener:</strong> Record sugar/sweetener purchases, on-hand amounts, and usage calculations.
+    </p>
+</div>
+
+<form id="sugarForm">
+    <div class="form-group">
+        <label for="date">Date *</label>
+        <input type="date" id="date" name="date" required>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="sugarBuy">Sugar Bought (units)</label>
+            <input type="number" id="sugarBuy" name="sugarBuy" min="0" value="0">
+        </div>
+        <div class="form-group">
+            <label for="sugarHand">Sugar On Hand (g)</label>
+            <input type="number" id="sugarHand" name="sugarHand" step="0.01" min="0" value="0">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="sweetnerBuy">Sweetener Bought (units)</label>
+            <input type="number" id="sweetnerBuy" name="sweetnerBuy" min="0" value="0">
+        </div>
+        <div class="form-group">
+            <label for="sweetnerHand">Sweetener On Hand (g)</label>
+            <input type="number" id="sweetnerHand" name="sweetnerHand" step="0.01" min="0" value="0">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="coffeeSold">Coffees Sold *</label>
+        <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+    </div>
+
+    <button type="submit">Save Sugar Entry</button>
+    <span class="error-message" id="errorMsg"></span>
+    <span class="success-message" id="successMsg"></span>
+</form>
+
+{% if records %}
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Sugar Buy</th>
+            <th>Sugar On Hand</th>
+            <th>Sweetener Buy</th>
+            <th>Sweetener On Hand</th>
+            <th>Coffees Sold</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+        <tr>
+            <td>{{ record.date }}</td>
+            <td>{{ record.sugarBuy }}</td>
+            <td>{{ "%.2f"|format(record.sugarHand) }}g</td>
+            <td>{{ record.sweetnerBuy }}</td>
+            <td>{{ "%.2f"|format(record.sweetnerHand) }}g</td>
+            <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
+            <td>
+                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/sugar/{{ record.id }}', {{ record.id }})">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+    <h3>No entries yet</h3>
+    <p>Add your first sugar entry using the form above</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('sugarForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = {
+            date: document.getElementById('date').value,
+            sugarBuy: document.getElementById('sugarBuy').value,
+            sugarHand: document.getElementById('sugarHand').value,
+            sweetnerBuy: document.getElementById('sweetnerBuy').value,
+            sweetnerHand: document.getElementById('sweetnerHand').value,
+            coffeeSold: document.getElementById('coffeeSold').value
+        };
+
+        try {
+            const response = await fetch('/api/sugar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                document.getElementById('sugarForm').reset();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.error, 'error');
+            }
+        } catch (error) {
+            showAlert('An error occurred: ' + error.message, 'error');
+        }
+    });
+
+    // Set today's date as default
+    document.getElementById('date').valueAsDate = new Date();
+</script>
+{% endblock %}

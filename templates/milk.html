@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Milk Usage - Weekly Stock Takes{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Milk Usage Tracking</h2>
+
+<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <p style="color: #333; font-size: 14px;">
+        <strong>Track milk consumption:</strong> Enter the number of milk bottles used (2L, 1L, 500ml) along with coffee sales data.
+    </p>
+</div>
+
+<form id="milkForm">
+    <div class="form-row">
+        <div class="form-group">
+            <label for="date">Date *</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+        <div class="form-group">
+            <label for="twoLiter">2 Liter Milk Bottles</label>
+            <input type="number" id="twoLiter" name="twoLiter" min="0" value="0">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="oneLiter">1 Liter Milk Bottles</label>
+            <input type="number" id="oneLiter" name="oneLiter" min="0" value="0">
+        </div>
+        <div class="form-group">
+            <label for="fiveMil">500ml Milk Bottles</label>
+            <input type="number" id="fiveMil" name="fiveMil" min="0" value="0">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="coffeeSold">Coffees Sold *</label>
+        <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+    </div>
+
+    <button type="submit">Save Milk Usage Entry</button>
+    <span class="error-message" id="errorMsg"></span>
+    <span class="success-message" id="successMsg"></span>
+</form>
+
+{% if records %}
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>2L Bottles</th>
+            <th>1L Bottles</th>
+            <th>500ml Bottles</th>
+            <th>Coffees Sold</th>
+            <th>Usage (ml/cup)</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+        <tr>
+            <td>{{ record.date }}</td>
+            <td>{{ record.twoLiter }}</td>
+            <td>{{ record.oneLiter }}</td>
+            <td>{{ record.fiveMil }}</td>
+            <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
+            <td>{{ "%.2f"|format(record.usage) }}</td>
+            <td>
+                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/milk/{{ record.id }}', {{ record.id }})">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+    <h3>No entries yet</h3>
+    <p>Add your first milk usage entry using the form above</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('milkForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = {
+            date: document.getElementById('date').value,
+            twoLiter: document.getElementById('twoLiter').value,
+            oneLiter: document.getElementById('oneLiter').value,
+            fiveMil: document.getElementById('fiveMil').value,
+            coffeeSold: document.getElementById('coffeeSold').value
+        };
+
+        try {
+            const response = await fetch('/api/milk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                document.getElementById('milkForm').reset();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.error, 'error');
+            }
+        } catch (error) {
+            showAlert('An error occurred: ' + error.message, 'error');
+        }
+    });
+
+    // Set today's date as default
+    document.getElementById('date').valueAsDate = new Date();
+</script>
+{% endblock %}
