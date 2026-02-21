@@ -66,7 +66,9 @@
             <th>Cappuccino</th>
             <th>Flat White</th>
             <th>Total</th>
+            <th>Theoretical Sales</th>
             <th>Sales</th>
+            <th>Difference</th>
             <th>Action</th>
         </tr>
     </thead>
@@ -80,7 +82,9 @@
             <td>{{ record.cappuccino }}</td>
             <td>{{ record.flatWhite }}</td>
             <td><strong>{{ record.total }}</strong></td>
+            <td><span class="theoretical-sales" data-index="{{ loop.index0 }}" data-total="{{ record.total }}">-</span></td>
             <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
+            <td><span class="difference" data-index="{{ loop.index0 }}" data-theoretical="0" data-sales="{{ record.coffeeSold }}">-</span></td>
             <td>
                 <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bean/{{ record.id }}', {{ record.id }})">Delete</button>
             </td>
@@ -138,5 +142,70 @@
 
     // Set today's date as default
     document.getElementById('date').valueAsDate = new Date();
+    
+    // Calculate theoretical sales and difference
+    function calculateSalesMetrics() {
+        const theoreticalSalesCells = document.querySelectorAll('.theoretical-sales');
+        const differenceCells = document.querySelectorAll('.difference');
+        const totals = Array.from(document.querySelectorAll('td:nth-child(7)')).map(td => parseFloat(td.textContent));
+        const sales = Array.from(document.querySelectorAll('td:nth-child(9)')).map(td => parseFloat(td.textContent));
+        
+        theoreticalSalesCells.forEach((cell, index) => {
+            let theoreticalSales = 0;
+            
+            // For the first entry, there's no previous entry, so show "-"
+            if (index === 0) {
+                cell.textContent = '-';
+            } else {
+                // Theoretical sales = previous total - current total
+                const previousTotal = totals[index - 1];
+                const currentTotal = totals[index];
+                theoreticalSales = previousTotal - currentTotal;
+                cell.textContent = theoreticalSales.toFixed(0);
+                
+                // Color coding for theoretical sales
+                if (theoreticalSales < 0) {
+                    cell.style.color = '#d32f2f';
+                } else if (theoreticalSales > 0) {
+                    cell.style.color = '#2e7d32';
+                }
+            }
+            
+            // Update data attribute for use in difference calculation
+            cell.dataset.theoretical = theoreticalSales;
+        });
+        
+        // Calculate difference = theoretical sales - actual sales
+        differenceCells.forEach((cell, index) => {
+            const theoreticalCell = theoreticalSalesCells[index];
+            const theoreticalSales = parseFloat(theoreticalCell.dataset.theoretical) || 0;
+            const actualSales = sales[index] || 0;
+            
+            if (index === 0) {
+                cell.textContent = '-';
+            } else {
+                const difference = theoreticalSales - actualSales;
+                
+                if (difference === 0) {
+                    cell.textContent = '-';
+                    cell.style.color = '#666';
+                } else if (difference > 0) {
+                    // Positive difference (theoretical > actual) = red
+                    cell.textContent = difference.toFixed(2);
+                    cell.style.color = '#d32f2f';
+                    cell.style.fontWeight = '600';
+                } else {
+                    // Negative difference (theoretical < actual) = green
+                    cell.textContent = difference.toFixed(2);
+                    cell.style.color = '#2e7d32';
+                    cell.style.fontWeight = '600';
+                }
+            }
+        });
+    }
+    
+    // Calculate on page load
+    calculateSalesMetrics();
+
 </script>
 {% endblock %}

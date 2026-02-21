@@ -5,11 +5,45 @@
 {% block content %}
 <h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Milk Usage Tracking</h2>
 
-<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+<div
+    style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
     <p style="color: #333; font-size: 14px;">
-        <strong>Track milk consumption:</strong> Enter the number of milk bottles used (2L, 1L, 500ml) along with coffee sales data.
+        <strong>Track milk consumption:</strong> Enter the number of milk bottles used (2L, 1L, 500ml) along with coffee
+        sales data.
     </p>
 </div>
+
+<div style="margin-bottom: 25px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <label for="noteInput" style="font-weight: 600; color: #333; margin: 0;">Last Costing</label>
+        <span id="savedIndicator"
+            style="display: none; font-size: 12px; color: #2e7d32; font-weight: 500; animation: fadeInOut 2s ease-in-out;">
+            ✓ Saved
+        </span>
+    </div>
+    <input type="text" id="noteInput" placeholder="Enter a note or goal here..."
+        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+</div>
+
+<style>
+    @keyframes fadeInOut {
+        0% {
+            opacity: 0;
+        }
+
+        10% {
+            opacity: 1;
+        }
+
+        90% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0;
+        }
+    }
+</style>
 
 <form id="milkForm">
     <div class="form-row">
@@ -39,7 +73,8 @@
         <div style="display: flex; gap: 10px; align-items: center;">
             <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
             {% if coffees_from_csv > 0 %}
-            <span style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;" data-coffee-csv="{{ coffees_from_csv }}">
+            <span style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;"
+                data-coffee-csv="{{ coffees_from_csv }}">
                 From CSV: {{ "%.2f"|format(coffees_from_csv) }}
             </span>
             {% else %}
@@ -76,7 +111,8 @@
             <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
             <td>{{ "%.2f"|format(record.usage) }}</td>
             <td>
-                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/milk/{{ record.id }}', {{ record.id }})">Delete</button>
+                <button type="button" class="btn-small btn-danger"
+                    onclick="deleteRecord('/api/milk/{{ record.id }}', {{ record.id }})">Delete</button>
             </td>
         </tr>
         {% endfor %}
@@ -85,7 +121,9 @@
 {% else %}
 <div class="empty-state">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+        </path>
     </svg>
     <h3>No entries yet</h3>
     <p>Add your first milk usage entry using the form above</p>
@@ -96,25 +134,56 @@
 
 {% block extra_js %}
 <script>
+    // ==================== NOTES & GOALS FUNCTIONALITY ====================
+    const noteInput = document.getElementById('noteInput');
+    const savedIndicator = document.getElementById('savedIndicator');
+    const STORAGE_KEY = 'milk_page_note';
+
+    // Load saved note on page load
+    function loadNote() {
+        const savedNote = localStorage.getItem(STORAGE_KEY);
+        if (savedNote) {
+            noteInput.value = savedNote;
+        }
+    }
+
+    // Save note to localStorage
+    function saveNote() {
+        localStorage.setItem(STORAGE_KEY, noteInput.value);
+
+        // Show saved indicator
+        savedIndicator.style.display = 'inline-block';
+        setTimeout(() => {
+            savedIndicator.style.display = 'none';
+        }, 2000);
+    }
+
+    // Save on blur
+    noteInput.addEventListener('blur', saveNote);
+
+    // Load note on page load
+    loadNote();
+
+    // ==================== COFFEE SOLD FUNCTIONALITY ====================
     // Set today's date as default
     document.getElementById('date').valueAsDate = new Date();
-    
+
     // Auto-fill coffee sold from CSV if available on page load
     async function updateCoffeeSoldFromCSV() {
         const dateInput = document.getElementById('date').value;
         const coffeesSoldField = document.getElementById('coffeeSold');
         const formGroup = coffeesSoldField.parentElement;
-        
+
         console.log('[v0] updateCoffeeSoldFromCSV called with date:', dateInput);
-        
+
         if (!dateInput) return;
-        
+
         try {
             const response = await fetch(`/api/milk/coffee-sold/${dateInput}`);
             const data = await response.json();
-            
+
             console.log('[v0] API response:', data);
-            
+
             // Remove all dynamic elements (badge and help text)
             const existingBadge = formGroup.querySelector('[data-coffee-csv]');
             if (existingBadge) {
@@ -124,11 +193,11 @@
             if (existingHelpText) {
                 existingHelpText.remove();
             }
-            
+
             if (data.success && data.coffeesSold > 0) {
                 console.log('[v0] Setting coffee sold to:', data.coffeesSold);
                 coffeesSoldField.value = data.coffeesSold.toFixed(2);
-                
+
                 // Create and add new badge
                 const badgeSpan = document.createElement('span');
                 badgeSpan.setAttribute('data-coffee-csv', data.coffeesSold);
@@ -139,7 +208,7 @@
                 console.log('[v0] No CSV data or zero coffees sold');
                 // No CSV data for this date
                 coffeesSoldField.value = '';
-                
+
                 // Create and add help text
                 const helpText = document.createElement('span');
                 helpText.style.cssText = 'color: #999; font-size: 14px;';
@@ -150,16 +219,16 @@
             console.error('[v0] Error fetching coffee sold data:', error);
         }
     }
-    
+
     // Initial load
     updateCoffeeSoldFromCSV();
-    
+
     // Update when date changes
     document.getElementById('date').addEventListener('change', updateCoffeeSoldFromCSV);
-    
+
     document.getElementById('milkForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const formData = {
             date: document.getElementById('date').value,
             twoLiter: document.getElementById('twoLiter').value,
