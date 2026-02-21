@@ -587,7 +587,62 @@ def delete_bean_entry(record_id):
 def lavazza_page():
     """Lavazza coffee page"""
     records = get_table_data('lavazza')
-    return render_template('lavazza.html', records=records)
+    
+    # Calculate deliveries from imported purchases data
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
+    imported_purchases_rows = [dict(row) for row in c.fetchall()]
+    
+    delivers_from_csv = 0
+    if imported_purchases_rows:
+        # Get lavazza purchases settings
+        lavazza_purchases_settings = get_settings('lavazza_purchases')
+        
+        # Sum all purchases matching lavazza descriptions
+        for row in imported_purchases_rows:
+            for coffee_desc in lavazza_purchases_settings:
+                if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                    delivers_from_csv += row['quantity']
+                    break
+    
+    # Calculate coffee sold from imported sales data
+    coffees_from_csv = 0
+    if records:  # Only calculate if we have existing records
+        c.execute("SELECT date FROM lavazza ORDER BY date DESC LIMIT 1")
+        latest_record = c.fetchone()
+        
+        if latest_record:
+            last_date = latest_record['date']
+            c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+            imported_rows = [dict(row) for row in c.fetchall()]
+            
+            if imported_rows:
+                # Get lavazza coffee settings
+                lavazza_settings = get_settings('lavazza')
+                
+                try:
+                    # Parse the last date (DD/MM/YYYY format from DB)
+                    from datetime import datetime
+                    last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                    today = datetime.now().date()
+                    
+                    # Sum all coffee sales between last date and today
+                    for row in imported_rows:
+                        for coffee_desc in lavazza_settings:
+                            if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                                try:
+                                    row_date = parser.parse(row['date'], dayfirst=True).date()
+                                    if row_date > last_date_obj:
+                                        coffees_from_csv += row['quantity']
+                                except:
+                                    continue
+                except Exception as e:
+                    print(f"Error calculating coffees from CSV: {e}")
+    
+    conn.close()
+    
+    return render_template('lavazza.html', records=records, coffees_from_csv=coffees_from_csv, delivers_from_csv=delivers_from_csv)
 
 @app.route('/api/lavazza', methods=['POST'])
 def add_lavazza_entry():
@@ -612,6 +667,92 @@ def add_lavazza_entry():
         conn.close()
         
         return jsonify({'success': True, 'message': 'Lavazza entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/lavazza/coffee-sold/<date>')
+def get_lavazza_coffee_sold_for_date(date):
+    """Get coffee sold from CSV for a specific date"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get the latest lavazza entry before this date
+        c.execute("SELECT date FROM lavazza WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        previous_record = c.fetchone()
+        
+        coffees_from_csv = 0
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+        else:
+            # If no previous record, use a very old date so we get all sales up to current date
+            last_date = "1900-01-01"
+        
+        # Get imported sales data
+        c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get lavazza coffee settings
+            lavazza_settings = get_settings('lavazza')
+            
+            try:
+                # last_date is in DD/MM/YYYY format from database, parse explicitly
+                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                # HTML date input is always YYYY-MM-DD format
+                current_date_obj = parser.parse(date, dayfirst=False).date()
+                
+                # Sum all coffee sales between last date and current date
+                for row in imported_rows:
+                    if not row['date']:
+                        continue
+                    try:
+                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                        
+                        for coffee_desc in lavazza_settings:
+                            if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                                if last_date_obj < row_date <= current_date_obj:
+                                    coffees_from_csv += row['quantity']
+                                break
+                    except Exception as e:
+                        continue
+            except Exception as e:
+                pass
+        
+        conn.close()
+        
+        return jsonify({'success': True, 'coffeesSold': coffees_from_csv})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/lavazza/deliveries')
+def get_lavazza_deliveries():
+    """Get deliveries from CSV purchases data"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get imported purchases data
+        c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
+        imported_purchases_rows = [dict(row) for row in c.fetchall()]
+        
+        delivers_from_csv = 0
+        if imported_purchases_rows:
+            # Get lavazza purchases settings
+            lavazza_purchases_settings = get_settings('lavazza_purchases')
+            
+            # Sum all purchases matching lavazza descriptions
+            for row in imported_purchases_rows:
+                for coffee_desc in lavazza_purchases_settings:
+                    if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                        delivers_from_csv += row['quantity']
+                        break
+        
+        conn.close()
+        
+        return jsonify({'success': True, 'deliveries': delivers_from_csv})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -707,13 +848,17 @@ def settings_page():
     milk_settings = get_settings('milk')
     bean_settings = get_settings('bean')
     lavazza_settings = get_settings('lavazza')
+    lavazza_purchases_settings = get_settings('lavazza_purchases')
     sugar_settings = get_settings('sugar')
+    sugar_purchases_settings = get_settings('sugar_purchases')
     
     return render_template('settings.html',
                           milk_settings=milk_settings,
                           bean_settings=bean_settings,
                           lavazza_settings=lavazza_settings,
-                          sugar_settings=sugar_settings)
+                          lavazza_purchases_settings=lavazza_purchases_settings,
+                          sugar_settings=sugar_settings,
+                          sugar_purchases_settings=sugar_purchases_settings)
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):

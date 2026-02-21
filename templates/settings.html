@@ -51,7 +51,7 @@
     <div class="settings-section">
         <h3>Lavazza Coffee</h3>
         <div class="form-group">
-            <label>Product Descriptions (for matching CSV data)</label>
+            <label>Sales CSV Product Descriptions</label>
             <div id="lavazza-descriptions" class="descriptions-list">
                 {% for desc in lavazza_settings %}
                     <div class="description-item">
@@ -63,7 +63,23 @@
                 {% endfor %}
             </div>
             <button type="button" class="btn-small" onclick="addDescriptionField('lavazza')">+ Add Description</button>
-            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('lavazza')">Save Lavazza Settings</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('lavazza')">Save Lavazza Sales Settings</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label>Purchases CSV Product Descriptions</label>
+            <div id="lavazza-purchases-descriptions" class="descriptions-list">
+                {% for desc in lavazza_purchases_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="lavazza-purchases-desc" placeholder="e.g., Coffee Beans, Fresh Coffee">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('lavazza-purchases')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('lavazza_purchases')">Save Lavazza Purchases Settings</button>
         </div>
     </div>
 
@@ -71,7 +87,7 @@
     <div class="settings-section">
         <h3>Sugar & Sweetener</h3>
         <div class="form-group">
-            <label>Product Descriptions (for matching CSV data)</label>
+            <label>Sales CSV Product Descriptions</label>
             <div id="sugar-descriptions" class="descriptions-list">
                 {% for desc in sugar_settings %}
                     <div class="description-item">
@@ -83,7 +99,23 @@
                 {% endfor %}
             </div>
             <button type="button" class="btn-small" onclick="addDescriptionField('sugar')">+ Add Description</button>
-            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('sugar')">Save Sugar Settings</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('sugar')">Save Sugar Sales Settings</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label>Purchases CSV Product Descriptions</label>
+            <div id="sugar-purchases-descriptions" class="descriptions-list">
+                {% for desc in sugar_purchases_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="sugar-purchases-desc" placeholder="e.g., Sugar Bags, Sweetener Boxes">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('sugar-purchases')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('sugar_purchases')">Save Sugar Purchases Settings</button>
         </div>
     </div>
 </div>
@@ -167,7 +199,11 @@
 
 <script>
     function addDescriptionField(category) {
-        const container = document.getElementById(`${category}-descriptions`);
+        // Handle hyphenated categories for purchases
+        let containerId = `${category}-descriptions`;
+        let inputClass = `${category.replace('-', '-')}-desc`;
+        
+        const container = document.getElementById(containerId);
         
         // Remove empty message if present
         const emptyMsg = container.querySelector('p');
@@ -178,7 +214,7 @@
         const item = document.createElement('div');
         item.className = 'description-item';
         item.innerHTML = `
-            <input type="text" class="${category}-desc" placeholder="Enter description">
+            <input type="text" class="${inputClass}" placeholder="Enter description">
             <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
         `;
         container.appendChild(item);
@@ -189,8 +225,22 @@
     }
 
     function saveSettings(category) {
-        const container = document.getElementById(`${category}-descriptions`);
-        const inputs = container.querySelectorAll(`input.${category}-desc`);
+        // Map category names to container IDs
+        let containerId, inputSelector;
+        
+        if (category === 'lavazza_purchases') {
+            containerId = 'lavazza-purchases-descriptions';
+            inputSelector = 'input.lavazza-purchases-desc';
+        } else if (category === 'sugar_purchases') {
+            containerId = 'sugar-purchases-descriptions';
+            inputSelector = 'input.sugar-purchases-desc';
+        } else {
+            containerId = `${category}-descriptions`;
+            inputSelector = `input.${category}-desc`;
+        }
+        
+        const container = document.getElementById(containerId);
+        const inputs = container.querySelectorAll(inputSelector);
         const descriptions = Array.from(inputs)
             .map(input => input.value.trim())
             .filter(desc => desc.length > 0);

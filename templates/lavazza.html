@@ -17,20 +17,41 @@
             <label for="date">Date *</label>
             <input type="date" id="date" name="date" required>
         </div>
+    </div>
+
+    <div class="form-row">
         <div class="form-group">
             <label for="deliveries">Deliveries</label>
-            <input type="number" id="deliveries" name="deliveries" min="0" value="0">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="deliveries" name="deliveries" min="0" value="0">
+                {% if delivers_from_csv > 0 %}
+                <span style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;" data-delivers-csv="{{ delivers_from_csv }}">
+                    From CSV: {{ "%.0f"|format(delivers_from_csv) }}
+                </span>
+                {% else %}
+                <span style="color: #999; font-size: 14px;">Enter manually or upload CSV</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="actualCount">Actual Count</label>
+            <input type="number" id="actualCount" name="actualCount" min="0" value="0">
         </div>
     </div>
 
     <div class="form-row">
         <div class="form-group">
-            <label for="actualCount">Actual Count</label>
-            <input type="number" id="actualCount" name="actualCount" min="0" value="0">
-        </div>
-        <div class="form-group">
             <label for="coffeeSold">Coffees Sold *</label>
-            <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+                {% if coffees_from_csv > 0 %}
+                <span style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;" data-coffee-csv="{{ coffees_from_csv }}">
+                    From CSV: {{ "%.2f"|format(coffees_from_csv) }}
+                </span>
+                {% else %}
+                <span style="color: #999; font-size: 14px;">Enter manually or upload CSV</span>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -44,8 +65,10 @@
     <thead>
         <tr>
             <th>Date</th>
+            <th>Opening Stock</th>
             <th>Deliveries</th>
             <th>Actual Count</th>
+            <th>Theoretical Sales</th>
             <th>Coffees Sold</th>
             <th>Action</th>
         </tr>
@@ -54,8 +77,10 @@
         {% for record in records %}
         <tr>
             <td>{{ record.date }}</td>
+            <td><span class="opening-stock" data-index="{{ loop.index0 }}" data-actual="{{ record.actualCount }}">-</span></td>
             <td>{{ record.deliveries }}</td>
             <td>{{ record.actualCount }}</td>
+            <td><span class="theoretical-sales" data-index="{{ loop.index0 }}" data-opening="0" data-deliveries="{{ record.deliveries }}" data-actual="{{ record.actualCount }}">-</span></td>
             <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
             <td>
                 <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/lavazza/{{ record.id }}', {{ record.id }})">Delete</button>
@@ -78,6 +103,153 @@
 
 {% block extra_js %}
 <script>
+    // Set today's date as default
+    document.getElementById('date').valueAsDate = new Date();
+    
+    // Auto-fill deliveries from CSV on page load
+    async function updateDeliversFromCSV() {
+        const deliveriesField = document.getElementById('deliveries');
+        const formGroup = deliveriesField.parentElement;
+        
+        try {
+            const response = await fetch(`/api/lavazza/deliveries`);
+            const data = await response.json();
+            
+            // Remove all dynamic elements (badge and help text)
+            const existingBadge = formGroup.querySelector('[data-delivers-csv]');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+            const existingHelpText = formGroup.querySelector('span[style*="color: #999"]');
+            if (existingHelpText) {
+                existingHelpText.remove();
+            }
+            
+            if (data.success && data.deliveries > 0) {
+                deliveriesField.value = data.deliveries.toFixed(0);
+                
+                // Create and add new badge
+                const badgeSpan = document.createElement('span');
+                badgeSpan.setAttribute('data-delivers-csv', data.deliveries);
+                badgeSpan.style.cssText = 'background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;';
+                badgeSpan.textContent = `From CSV: ${data.deliveries.toFixed(0)}`;
+                formGroup.appendChild(badgeSpan);
+            } else {
+                // No CSV data
+                deliveriesField.value = '';
+                
+                // Create and add help text
+                const helpText = document.createElement('span');
+                helpText.style.cssText = 'color: #999; font-size: 14px;';
+                helpText.textContent = 'Enter manually or upload CSV';
+                formGroup.appendChild(helpText);
+            }
+        } catch (error) {
+            console.error('Error fetching deliveries data:', error);
+        }
+    }
+    
+    // Auto-fill coffee sold from CSV if available on page load
+    async function updateCoffeeSoldFromCSV() {
+        const dateInput = document.getElementById('date').value;
+        const coffeesSoldField = document.getElementById('coffeeSold');
+        const formGroup = coffeesSoldField.parentElement;
+        
+        if (!dateInput) return;
+        
+        try {
+            const response = await fetch(`/api/lavazza/coffee-sold/${dateInput}`);
+            const data = await response.json();
+            
+            // Remove all dynamic elements (badge and help text)
+            const existingBadge = formGroup.querySelector('[data-coffee-csv]');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+            const existingHelpText = formGroup.querySelector('span[style*="color: #999"]');
+            if (existingHelpText) {
+                existingHelpText.remove();
+            }
+            
+            if (data.success && data.coffeesSold > 0) {
+                coffeesSoldField.value = data.coffeesSold.toFixed(2);
+                
+                // Create and add new badge
+                const badgeSpan = document.createElement('span');
+                badgeSpan.setAttribute('data-coffee-csv', data.coffeesSold);
+                badgeSpan.style.cssText = 'background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;';
+                badgeSpan.textContent = `From CSV: ${data.coffeesSold.toFixed(2)}`;
+                formGroup.appendChild(badgeSpan);
+            } else {
+                // No CSV data for this date
+                coffeesSoldField.value = '';
+                
+                // Create and add help text
+                const helpText = document.createElement('span');
+                helpText.style.cssText = 'color: #999; font-size: 14px;';
+                helpText.textContent = 'Enter manually or upload CSV';
+                formGroup.appendChild(helpText);
+            }
+        } catch (error) {
+            console.error('Error fetching coffee sold data:', error);
+        }
+    }
+    
+    // Initial load - call both functions
+    updateDeliversFromCSV();
+    updateCoffeeSoldFromCSV();
+    
+    // Update when date changes
+    document.getElementById('date').addEventListener('change', updateCoffeeSoldFromCSV);
+    
+    // Calculate Opening Stock and Theoretical Sales
+    function calculateStockMetrics() {
+        const openingStockCells = document.querySelectorAll('.opening-stock');
+        const theoreticalSalesCells = document.querySelectorAll('.theoretical-sales');
+        const rows = document.querySelectorAll('tbody tr');
+        const actualCounts = Array.from(rows).map(row => parseFloat(row.querySelector('td:nth-child(4)').textContent));
+        
+        openingStockCells.forEach((cell, index) => {
+            // Since records are ordered by date DESC (newest first),
+            // the previous entry is at index + 1
+            if (index === rows.length - 1) {
+                // Last row (oldest entry) - no previous entry
+                cell.textContent = '-';
+            } else {
+                // Opening stock = previous entry's actual count (index + 1)
+                const openingStock = actualCounts[index + 1];
+                cell.textContent = openingStock.toFixed(0);
+                cell.dataset.opening = openingStock;
+            }
+        });
+        
+        // Calculate Theoretical Sales = Opening Stock + Deliveries - Actual Count
+        theoreticalSalesCells.forEach((cell, index) => {
+            const openingStockCell = openingStockCells[index];
+            const openingStock = parseFloat(openingStockCell.dataset.opening) || 0;
+            const deliveries = parseFloat(cell.dataset.deliveries) || 0;
+            const actualCount = parseFloat(cell.dataset.actual) || 0;
+            
+            if (index === rows.length - 1) {
+                // Last row (oldest entry) - no calculation
+                cell.textContent = '-';
+            } else {
+                const theoreticalSales = openingStock + deliveries - actualCount;
+                cell.textContent = theoreticalSales.toFixed(0);
+                
+                // Color coding
+                if (theoreticalSales < 0) {
+                    cell.style.color = '#d32f2f';
+                } else if (theoreticalSales > 0) {
+                    cell.style.color = '#2e7d32';
+                }
+            }
+        });
+    }
+    
+    // Calculate on page load
+    calculateStockMetrics();
+    
     document.getElementById('lavazzaForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -108,8 +280,5 @@
             showAlert('An error occurred: ' + error.message, 'error');
         }
     });
-
-    // Set today's date as default
-    document.getElementById('date').valueAsDate = new Date();
 </script>
 {% endblock %}
