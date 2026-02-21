@@ -8,6 +8,8 @@ A modern web-based coffee shop inventory management system built with Flask and 
 - **Bean Coffee Management**: Track vending machine coffee sales by type (Americano, Cafe Creme, Latte, Cappuccino, Flat White)
 - **Lavazza Coffee Inventory**: Manage fresh-made coffee stock and deliveries
 - **Sugar & Sweetener Tracking**: Record sugar/sweetener purchases and on-hand amounts
+- **CSV Import**: Upload sales and purchases data from your POS system
+- **Product Mapping**: Configure product descriptions for automatic data matching
 - **Data Persistence**: All entries stored in SQLite3 database
 - **Responsive Design**: Beautiful, mobile-friendly interface with gradient styling
 - **Easy Data Management**: Add, view, and delete entries with intuitive forms
@@ -83,6 +85,26 @@ The application will start at `http://localhost:5000`
 3. Enter total coffee sales
 4. Click "Save Sugar Entry"
 
+## CSV Import
+
+### Settings Configuration
+1. Click "Settings" in the navigation
+2. For each category (Milk, Bean Coffee, Lavazza, Sugar), add product descriptions
+3. Enter descriptions that match your CSV data (e.g., "2L Milk", "Cappuccino")
+4. Click "Save [Category] Settings" for each category
+
+### Importing CSV Files
+1. Click "Import CSV" in the navigation
+2. Upload your Sales CSV (columns: 1=Description, 3=Date, 6=Quantity)
+3. Upload your Purchases CSV (columns: 0=Description, 6=Quantity)
+4. The system automatically matches descriptions and calculates quantities
+
+### Using Imported Data
+Once CSV files are imported and settings are configured:
+- Sales data is matched by description and date range
+- Purchases data is summed for matching descriptions
+- The data can be viewed via the API endpoint: `/api/import/get-data/<type>/<category>/<date_from>/<date_to>`
+
 ## Database
 
 The application uses SQLite3 with a file-based database (`stocktakes.db`). The database is automatically created on first run with the following tables:
@@ -91,6 +113,8 @@ The application uses SQLite3 with a file-based database (`stocktakes.db`). The d
 - `coffeeBean`: Tracks bean coffee machine sales
 - `lavazza`: Tracks fresh-made coffee inventory
 - `coffeeSugar`: Tracks sugar and sweetener usage
+- `csvSettings`: Stores product description mappings for each category
+- `importedData`: Stores imported sales and purchase data
 
 ## Deleting Entries
 
@@ -109,7 +133,9 @@ weekly-stock-takes/
     ├── milk.html          # Milk tracking page
     ├── bean.html          # Bean coffee tracking page
     ├── lavazza.html       # Lavazza tracking page
-    └── sugar.html         # Sugar tracking page
+    ├── sugar.html         # Sugar tracking page
+    ├── import.html        # CSV import page
+    └── settings.html      # Settings configuration page
 ```
 
 ## Differences from Original Application
@@ -146,6 +172,12 @@ The application provides the following REST API endpoints:
 - `GET /api/sugar/data` - Get all sugar entries as JSON
 - `POST /api/sugar` - Add new sugar entry
 - `DELETE /api/sugar/<id>` - Delete sugar entry
+
+### CSV Import & Settings
+- `POST /api/import/sales` - Upload sales CSV file
+- `POST /api/import/purchases` - Upload purchases CSV file
+- `POST /api/settings/<category>` - Save product descriptions for a category
+- `GET /api/import/get-data/<type>/<category>/<date_from>/<date_to>` - Get matching imported data
 
 ## Troubleshooting
 

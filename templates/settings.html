@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Weekly Stock Takes{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <h2>CSV Settings</h2>
+    <p style="color: #666; margin-bottom: 30px;">Configure product descriptions for each category. Enter descriptions separated by commas or add them individually below.</p>
+
+    <!-- Milk Settings -->
+    <div class="settings-section">
+        <h3>Milk Usage</h3>
+        <div class="form-group">
+            <label>Product Descriptions (for matching CSV data)</label>
+            <div id="milk-descriptions" class="descriptions-list">
+                {% for desc in milk_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="milk-desc" placeholder="e.g., 2L Milk, 1L Milk">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('milk')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('milk')">Save Milk Settings</button>
+        </div>
+    </div>
+
+    <!-- Bean Coffee Settings -->
+    <div class="settings-section">
+        <h3>Bean Coffee</h3>
+        <div class="form-group">
+            <label>Product Descriptions (for matching CSV data)</label>
+            <div id="bean-descriptions" class="descriptions-list">
+                {% for desc in bean_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="bean-desc" placeholder="e.g., Americano, Cappuccino">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('bean')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('bean')">Save Bean Coffee Settings</button>
+        </div>
+    </div>
+
+    <!-- Lavazza Coffee Settings -->
+    <div class="settings-section">
+        <h3>Lavazza Coffee</h3>
+        <div class="form-group">
+            <label>Product Descriptions (for matching CSV data)</label>
+            <div id="lavazza-descriptions" class="descriptions-list">
+                {% for desc in lavazza_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="lavazza-desc" placeholder="e.g., Fresh Coffee">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('lavazza')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('lavazza')">Save Lavazza Settings</button>
+        </div>
+    </div>
+
+    <!-- Sugar Settings -->
+    <div class="settings-section">
+        <h3>Sugar & Sweetener</h3>
+        <div class="form-group">
+            <label>Product Descriptions (for matching CSV data)</label>
+            <div id="sugar-descriptions" class="descriptions-list">
+                {% for desc in sugar_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="sugar-desc" placeholder="e.g., Sugar, Sweetener">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('sugar')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('sugar')">Save Sugar Settings</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .settings-container {
+        max-width: 800px;
+    }
+
+    .settings-container h2 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 24px;
+    }
+
+    .settings-section {
+        background: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        border-left: 4px solid #667eea;
+    }
+
+    .settings-section h3 {
+        color: #667eea;
+        font-size: 18px;
+        margin-bottom: 15px;
+    }
+
+    .descriptions-list {
+        background: white;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .description-item {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: center;
+    }
+
+    .description-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .description-item input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+
+    .btn-small {
+        padding: 8px 12px;
+        font-size: 12px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-small:hover {
+        background: #764ba2;
+        transform: translateY(-1px);
+    }
+
+    .btn-small.btn-danger {
+        background: #ff6b6b;
+    }
+
+    .btn-small.btn-danger:hover {
+        background: #ff5252;
+    }
+</style>
+
+<script>
+    function addDescriptionField(category) {
+        const container = document.getElementById(`${category}-descriptions`);
+        
+        // Remove empty message if present
+        const emptyMsg = container.querySelector('p');
+        if (emptyMsg) {
+            emptyMsg.remove();
+        }
+
+        const item = document.createElement('div');
+        item.className = 'description-item';
+        item.innerHTML = `
+            <input type="text" class="${category}-desc" placeholder="Enter description">
+            <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+        `;
+        container.appendChild(item);
+    }
+
+    function removeDescription(button) {
+        button.parentElement.remove();
+    }
+
+    function saveSettings(category) {
+        const container = document.getElementById(`${category}-descriptions`);
+        const inputs = container.querySelectorAll(`input.${category}-desc`);
+        const descriptions = Array.from(inputs)
+            .map(input => input.value.trim())
+            .filter(desc => desc.length > 0);
+
+        if (descriptions.length === 0) {
+            alert('Please add at least one description');
+            return;
+        }
+
+        fetch(`/api/settings/${category}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ descriptions: descriptions })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error saving settings', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving settings', 'error');
+        });
+    }
+</script>
+{% endblock %}

@@ -8,6 +8,8 @@ from datetime import datetime, date
 import sqlite3
 import os
 from dateutil import parser
+import csv
+from io import StringIO
 
 app = Flask(__name__)
 DATABASE = 'stocktakes.db'
@@ -70,6 +72,25 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # CSV Settings table - stores product descriptions mapping
+    c.execute('''CREATE TABLE IF NOT EXISTS csvSettings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL UNIQUE,
+        descriptions TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
+    # Imported CSV data table
+    c.execute('''CREATE TABLE IF NOT EXISTS importedData (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        data_type TEXT NOT NULL,
+        description TEXT NOT NULL,
+        date TEXT,
+        quantity REAL DEFAULT 0,
+        imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
     conn.commit()
     conn.close()
 
@@ -105,6 +126,103 @@ def delete_record(table_name, record_id):
     c.execute(f"DELETE FROM {table_name} WHERE id = ?", (record_id,))
     conn.commit()
     conn.close()
+
+def get_settings(category):
+    """Get CSV settings for a category"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT descriptions FROM csvSettings WHERE category = ?", (category,))
+    result = c.fetchone()
+    conn.close()
+    if result:
+        return result['descriptions'].split('|')
+    return []
+
+def save_settings(category, descriptions):
+    """Save CSV settings for a category"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    desc_str = '|'.join(descriptions)
+    c.execute("""INSERT OR REPLACE INTO csvSettings (category, descriptions, updated_at)
+                 VALUES (?, ?, CURRENT_TIMESTAMP)""",
+              (category, desc_str))
+    conn.commit()
+    conn.close()
+
+def parse_sales_csv(file_content):
+    """Parse sales CSV: columns 1 (description), 3 (date), 6 (quantity)"""
+    rows = []
+    try:
+        csv_reader = csv.reader(StringIO(file_content))
+        for row in csv_reader:
+            if len(row) > 6:  # Ensure row has enough columns
+                try:
+                    description = row[1].strip()
+                    date_str = row[3].strip()
+                    quantity = float(row[6].strip())
+                    if description and date_str and quantity:
+                        rows.append({
+                            'description': description,
+                            'date': format_date(date_str),
+                            'quantity': quantity
+                        })
+                except (ValueError, IndexError):
+                    continue
+    except Exception as e:
+        print(f"Error parsing sales CSV: {e}")
+    return rows
+
+def parse_purchases_csv(file_content):
+    """Parse purchases CSV: columns 0 (description), 6 (quantity)"""
+    rows = []
+    try:
+        csv_reader = csv.reader(StringIO(file_content))
+        for row in csv_reader:
+            if len(row) > 6:  # Ensure row has enough columns
+                try:
+                    description = row[0].strip()
+                    quantity = float(row[6].strip())
+                    if description and quantity:
+                        rows.append({
+                            'description': description,
+                            'quantity': quantity
+                        })
+                except (ValueError, IndexError):
+                    continue
+    except Exception as e:
+        print(f"Error parsing purchases CSV: {e}")
+    return rows
+
+def get_matching_quantity(imported_rows, description, date_from, date_to):
+    """Get matching quantity from imported data between two dates"""
+    total = 0
+    for row in imported_rows:
+        if description.lower() in row['description'].lower():
+            if 'date' in row:  # Sales data has dates
+                try:
+                    row_date = parser.parse(row['date'], dayfirst=True).date()
+                    from_date = parser.parse(date_from, dayfirst=True).date()
+                    to_date = parser.parse(date_to, dayfirst=True).date()
+                    if from_date <= row_date <= to_date:
+                        total += row['quantity']
+                except:
+                    continue
+            else:  # Purchases data (sum all)
+                total += row['quantity']
+    return total
+
+def decode_file_content(file_bytes):
+    """Try to decode file content with multiple encodings"""
+    encodings = ['utf-8', 'utf-8-sig', 'windows-1252', 'iso-8859-1', 'cp1252', 'latin-1']
+    
+    for encoding in encodings:
+        try:
+            return file_bytes.decode(encoding)
+        except (UnicodeDecodeError, AttributeError):
+            continue
+    
+    # If all encodings fail, use utf-8 with error handling
+    return file_bytes.decode('utf-8', errors='replace')
 
 # ==================== ROUTES ====================
 
@@ -349,6 +467,145 @@ def get_sugar_data():
     records = get_table_data('coffeeSugar')
     data = [dict(r) for r in records]
     return jsonify(data)
+
+# ==================== SETTINGS & IMPORT ROUTES ====================
+
+@app.route('/settings')
+def settings_page():
+    """Settings page for CSV configuration"""
+    milk_settings = get_settings('milk')
+    bean_settings = get_settings('bean')
+    lavazza_settings = get_settings('lavazza')
+    sugar_settings = get_settings('sugar')
+    
+    return render_template('settings.html',
+                          milk_settings=milk_settings,
+                          bean_settings=bean_settings,
+                          lavazza_settings=lavazza_settings,
+                          sugar_settings=sugar_settings)
+
+@app.route('/api/settings/<category>', methods=['POST'])
+def save_category_settings(category):
+    """Save settings for a category"""
+    try:
+        data = request.json
+        descriptions = data.get('descriptions', [])
+        
+        # Filter out empty descriptions
+        descriptions = [d.strip() for d in descriptions if d.strip()]
+        
+        if descriptions:
+            save_settings(category, descriptions)
+            return jsonify({'success': True, 'message': f'{category.title()} settings saved'})
+        else:
+            return jsonify({'success': False, 'error': 'At least one description required'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/import')
+def import_page():
+    """CSV import page"""
+    return render_template('import.html')
+
+@app.route('/api/import/sales', methods=['POST'])
+def import_sales_csv():
+    """Import sales CSV"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.endswith('.csv'):
+            return jsonify({'success': False, 'error': 'File must be CSV format'}), 400
+        
+        # Read and parse CSV with encoding fallback
+        file_bytes = file.read()
+        content = decode_file_content(file_bytes)
+        sales_data = parse_sales_csv(content)
+        
+        # Clear old import data and save new data
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DELETE FROM importedData WHERE data_type = 'sales'")
+        
+        for row in sales_data:
+            c.execute("""INSERT INTO importedData (data_type, description, date, quantity)
+                        VALUES (?, ?, ?, ?)""",
+                     ('sales', row['description'], row['date'], row['quantity']))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': f'Imported {len(sales_data)} sales records',
+                       'count': len(sales_data)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/import/purchases', methods=['POST'])
+def import_purchases_csv():
+    """Import purchases CSV"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.endswith('.csv'):
+            return jsonify({'success': False, 'error': 'File must be CSV format'}), 400
+        
+        # Read and parse CSV with encoding fallback
+        file_bytes = file.read()
+        content = decode_file_content(file_bytes)
+        purchases_data = parse_purchases_csv(content)
+        
+        # Clear old import data and save new data
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DELETE FROM importedData WHERE data_type = 'purchases'")
+        
+        for row in purchases_data:
+            c.execute("""INSERT INTO importedData (data_type, description, quantity)
+                        VALUES (?, ?, ?)""",
+                     ('purchases', row['description'], row['quantity']))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': f'Imported {len(purchases_data)} purchase records',
+                       'count': len(purchases_data)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/import/get-data/<data_type>/<category>/<date_from>/<date_to>')
+def get_import_data(data_type, category, date_from, date_to):
+    """Get imported data for a category and date range"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get settings for this category
+        descriptions = get_settings(category)
+        
+        # Get imported data
+        c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = ?",
+                 (data_type,))
+        imported_rows = [dict(row) for row in c.fetchall()]
+        conn.close()
+        
+        # Match and sum quantities
+        result = {}
+        for desc in descriptions:
+            quantity = get_matching_quantity(imported_rows, desc, date_from, date_to)
+            result[desc] = quantity
+        
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 if __name__ == '__main__':
     init_db()
