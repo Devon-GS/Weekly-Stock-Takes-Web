@@ -36,7 +36,16 @@
 
     <div class="form-group">
         <label for="coffeeSold">Coffees Sold *</label>
-        <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+            {% if coffees_from_csv > 0 %}
+            <span style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;" data-coffee-csv="{{ coffees_from_csv }}">
+                From CSV: {{ "%.2f"|format(coffees_from_csv) }}
+            </span>
+            {% else %}
+            <span style="color: #999; font-size: 14px;">Enter manually or upload CSV</span>
+            {% endif %}
+        </div>
     </div>
 
     <button type="submit">Save Milk Usage Entry</button>
@@ -87,6 +96,67 @@
 
 {% block extra_js %}
 <script>
+    // Set today's date as default
+    document.getElementById('date').valueAsDate = new Date();
+    
+    // Auto-fill coffee sold from CSV if available on page load
+    async function updateCoffeeSoldFromCSV() {
+        const dateInput = document.getElementById('date').value;
+        const coffeesSoldField = document.getElementById('coffeeSold');
+        const formGroup = coffeesSoldField.parentElement;
+        
+        console.log('[v0] updateCoffeeSoldFromCSV called with date:', dateInput);
+        
+        if (!dateInput) return;
+        
+        try {
+            const response = await fetch(`/api/milk/coffee-sold/${dateInput}`);
+            const data = await response.json();
+            
+            console.log('[v0] API response:', data);
+            
+            // Remove all dynamic elements (badge and help text)
+            const existingBadge = formGroup.querySelector('[data-coffee-csv]');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+            const existingHelpText = formGroup.querySelector('span[style*="color: #999"]');
+            if (existingHelpText) {
+                existingHelpText.remove();
+            }
+            
+            if (data.success && data.coffeesSold > 0) {
+                console.log('[v0] Setting coffee sold to:', data.coffeesSold);
+                coffeesSoldField.value = data.coffeesSold.toFixed(2);
+                
+                // Create and add new badge
+                const badgeSpan = document.createElement('span');
+                badgeSpan.setAttribute('data-coffee-csv', data.coffeesSold);
+                badgeSpan.style.cssText = 'background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;';
+                badgeSpan.textContent = `From CSV: ${data.coffeesSold.toFixed(2)}`;
+                formGroup.appendChild(badgeSpan);
+            } else {
+                console.log('[v0] No CSV data or zero coffees sold');
+                // No CSV data for this date
+                coffeesSoldField.value = '';
+                
+                // Create and add help text
+                const helpText = document.createElement('span');
+                helpText.style.cssText = 'color: #999; font-size: 14px;';
+                helpText.textContent = 'Enter manually or upload CSV';
+                formGroup.appendChild(helpText);
+            }
+        } catch (error) {
+            console.error('[v0] Error fetching coffee sold data:', error);
+        }
+    }
+    
+    // Initial load
+    updateCoffeeSoldFromCSV();
+    
+    // Update when date changes
+    document.getElementById('date').addEventListener('change', updateCoffeeSoldFromCSV);
+    
     document.getElementById('milkForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -118,8 +188,5 @@
             showAlert('An error occurred: ' + error.message, 'error');
         }
     });
-
-    // Set today's date as default
-    document.getElementById('date').valueAsDate = new Date();
 </script>
 {% endblock %}

@@ -18,9 +18,6 @@ DATABASE = 'stocktakes.db'
 
 def init_db():
     """Initialize the SQLite database with required tables"""
-    if os.path.exists(DATABASE):
-        return
-    
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     
@@ -105,9 +102,22 @@ def get_db_connection():
 def format_date(date_str):
     """Format date string to DD/MM/YYYY"""
     try:
-        parsed_date = parser.parse(date_str, dayfirst=True)
+        # Check if it's already in DD/MM/YYYY format
+        if '/' in date_str and date_str.count('/') == 2:
+            parts = date_str.split('/')
+            if len(parts[0]) == 2 and len(parts[1]) == 2 and len(parts[2]) == 4:
+                return date_str  # Already in DD/MM/YYYY format
+        
+        # HTML date input is YYYY-MM-DD (ISO format), parse without dayfirst
+        if '-' in date_str and date_str.count('-') == 2:
+            parsed_date = parser.parse(date_str, dayfirst=False)
+        else:
+            # CSV dates might be in different formats, use dayfirst
+            parsed_date = parser.parse(date_str, dayfirst=True)
+        
         return parsed_date.strftime('%d/%m/%Y')
-    except:
+    except Exception as e:
+        print(f"[v0] Error formatting date '{date_str}': {e}")
         return date_str
 
 def get_table_data(table_name):
@@ -134,8 +144,12 @@ def get_settings(category):
     c.execute("SELECT descriptions FROM csvSettings WHERE category = ?", (category,))
     result = c.fetchone()
     conn.close()
+    print(f"[v0] get_settings({category}) result: {result}")
     if result:
-        return result['descriptions'].split('|')
+        descriptions = result['descriptions'].split('|')
+        print(f"[v0] Parsed descriptions: {descriptions}")
+        return descriptions
+    print(f"[v0] No settings found for category: {category}")
     return []
 
 def save_settings(category, descriptions):
@@ -259,38 +273,158 @@ def index():
 def milk_page():
     """Milk usage page"""
     records = get_table_data('milkUsage')
-    return render_template('milk.html', records=records)
+    
+    # Get the latest milk usage entry to find the date range for coffee calculations
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT date FROM milkUsage ORDER BY date DESC LIMIT 1")
+    latest_record = c.fetchone()
+    
+    # Calculate coffees sold from imported sales data
+    coffees_from_csv = 0
+    if records:  # Only calculate if we have existing records
+        if latest_record:
+            last_date = latest_record['date']
+            c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+            imported_rows = [dict(row) for row in c.fetchall()]
+            
+            if imported_rows:
+                # Get milk coffee settings
+                milk_settings = get_settings('milk')
+                
+                try:
+                    # Find the next date after the last stock take
+                    from datetime import datetime, timedelta
+                    last_date_obj = parser.parse(last_date, dayfirst=True).date()
+                    today = datetime.now().date()
+                    
+                    # Sum all coffee sales between last date and today
+                    for row in imported_rows:
+                        for coffee_desc in milk_settings:
+                            if coffee_desc.lower() in row['description'].lower():
+                                try:
+                                    row_date = parser.parse(row['date'], dayfirst=True).date()
+                                    if row_date > last_date_obj:
+                                        coffees_from_csv += row['quantity']
+                                except:
+                                    continue
+                except Exception as e:
+                    print(f"Error calculating coffees from CSV: {e}")
+    
+    conn.close()
+    
+    return render_template('milk.html', records=records, coffees_from_csv=coffees_from_csv)
 
 @app.route('/api/milk', methods=['POST'])
 def add_milk_entry():
     """Add new milk usage entry"""
     try:
         data = request.json
-        date_str = format_date(data.get('date', ''))
+        date_input = data.get('date', '')
+        date = format_date(date_input)
+        print(f"[v0] Milk entry - Input date: {date_input}, Formatted date: {date}")
+        two_liter = data.get('twoLiter', 0)
+        one_liter = data.get('oneLiter', 0)
+        five_mil = data.get('fiveMil', 0)
+        coffee_sold = data.get('coffeeSold', 0)
+        
+        if not date:
+            return jsonify({'success': False, 'error': 'Date is required'}), 400
+        
+        # Calculate usage (ml per cup)
+        total_ml = (int(two_liter) * 2000) + (int(one_liter) * 1000) + (int(five_mil) * 500)
+        usage = total_ml / float(coffee_sold) if float(coffee_sold) > 0 else 0
         
         conn = get_db_connection()
         c = conn.cursor()
-        
-        # Calculate coffee sold and usage
-        two_liter = int(data.get('twoLiter', 0))
-        one_liter = int(data.get('oneLiter', 0))
-        five_mil = int(data.get('fiveMil', 0))
-        
-        total_milk = (two_liter * 2000) + (one_liter * 1000) + (five_mil * 500)
-        coffee_sold = float(data.get('coffeeSold', 0))
-        
-        usage = total_milk / coffee_sold if coffee_sold > 0 else 0
-        
-        c.execute("""INSERT INTO milkUsage 
-                    (date, twoLiter, oneLiter, fiveMil, coffeeSold, usage)
-                    VALUES (?, ?, ?, ?, ?, ?)""",
-                 (date_str, two_liter, one_liter, five_mil, coffee_sold, usage))
-        
+        c.execute("""INSERT INTO milkUsage (date, twoLiter, oneLiter, fiveMil, coffeeSold, usage)
+                     VALUES (?, ?, ?, ?, ?, ?)""",
+                  (date, two_liter, one_liter, five_mil, coffee_sold, usage))
         conn.commit()
         conn.close()
         
-        return jsonify({'success': True, 'message': 'Milk entry added successfully'})
+        return jsonify({'success': True, 'message': 'Milk usage entry saved'})
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/milk/coffee-sold/<date>')
+def get_coffee_sold_for_date(date):
+    """Get coffee sold from CSV for a specific date"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        print(f"[v0] Requested date: {date}")
+        
+        # Get the latest milk entry before this date
+        c.execute("SELECT date FROM milkUsage WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        previous_record = c.fetchone()
+        
+        coffees_from_csv = 0
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+            print(f"[v0] Previous record found with date: {last_date}")
+        else:
+            # If no previous record, use a very old date so we get all sales up to current date
+            last_date = "1900-01-01"
+            print(f"[v0] No previous record found, using start date: {last_date}")
+        
+        # Get imported sales data
+        c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        print(f"[v0] Imported rows count: {len(imported_rows)}")
+        
+        if imported_rows:
+            # Get milk coffee settings
+            milk_settings = get_settings('milk')
+            
+            print(f"[v0] Coffee products to match: {milk_settings}")
+            
+            try:
+                # last_date is in DD/MM/YYYY format from database, parse explicitly
+                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                # HTML date input is always YYYY-MM-DD format
+                current_date_obj = parser.parse(date, dayfirst=False).date()
+                
+                print(f"[v0] Last date parsed: {last_date} -> {last_date_obj}")
+                print(f"[v0] Date range: {last_date_obj} < date <= {current_date_obj}")
+                
+                # Sum all coffee sales between last date and current date
+                matches_found = 0
+                for row in imported_rows:
+                    if not row['date']:
+                        continue
+                    try:
+                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                        
+                        for coffee_desc in milk_settings:
+                            if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                                if last_date_obj < row_date <= current_date_obj:
+                                    print(f"[v0] Matched: {row['description']} on {row_date} qty: {row['quantity']}")
+                                    coffees_from_csv += row['quantity']
+                                    matches_found += 1
+                                break
+                    except Exception as e:
+                        print(f"[v0] Error parsing row date {row['date']}: {e}")
+                        continue
+                
+                print(f"[v0] Total matches found: {matches_found}")
+            except Exception as e:
+                print(f"[v0] Error calculating coffees from CSV: {e}")
+        else:
+            print(f"[v0] No imported sales data available")
+        
+        conn.close()
+        
+        print(f"[v0] Total coffees from CSV: {coffees_from_csv}")
+        return jsonify({'success': True, 'coffeesSold': coffees_from_csv})
+    except Exception as e:
+        print(f"[v0] Exception in get_coffee_sold_for_date: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/milk/<int:record_id>', methods=['DELETE'])
