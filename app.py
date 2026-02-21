@@ -442,7 +442,47 @@ def delete_milk_entry(record_id):
 def bean_page():
     """Bean coffee page"""
     records = get_table_data('coffeeBean')
-    return render_template('bean.html', records=records)
+    
+    # Get the latest bean coffee entry to find the date range for sales calculations
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT date FROM coffeeBean ORDER BY date DESC LIMIT 1")
+    latest_record = c.fetchone()
+    
+    # Calculate coffee sold from imported sales data
+    coffees_from_csv = 0
+    if records:  # Only calculate if we have existing records
+        if latest_record:
+            last_date = latest_record['date']
+            c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+            imported_rows = [dict(row) for row in c.fetchall()]
+            
+            if imported_rows:
+                # Get bean coffee settings
+                bean_settings = get_settings('bean')
+                
+                try:
+                    # Parse the last date (DD/MM/YYYY format from DB)
+                    from datetime import datetime
+                    last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                    today = datetime.now().date()
+                    
+                    # Sum all coffee sales between last date and today
+                    for row in imported_rows:
+                        for coffee_desc in bean_settings:
+                            if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                                try:
+                                    row_date = parser.parse(row['date'], dayfirst=True).date()
+                                    if row_date > last_date_obj:
+                                        coffees_from_csv += row['quantity']
+                                except:
+                                    continue
+                except Exception as e:
+                    print(f"Error calculating coffees from CSV: {e}")
+    
+    conn.close()
+    
+    return render_template('bean.html', records=records, coffees_from_csv=coffees_from_csv)
 
 @app.route('/api/bean', methods=['POST'])
 def add_bean_entry():
@@ -472,6 +512,63 @@ def add_bean_entry():
         conn.close()
         
         return jsonify({'success': True, 'message': 'Bean coffee entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bean/coffee-sold/<date>')
+def get_bean_coffee_sold_for_date(date):
+    """Get coffee sold from CSV for a specific date"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get the latest bean coffee entry before this date
+        c.execute("SELECT date FROM coffeeBean WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        previous_record = c.fetchone()
+        
+        coffees_from_csv = 0
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+        else:
+            # If no previous record, use a very old date so we get all sales up to current date
+            last_date = "1900-01-01"
+        
+        # Get imported sales data
+        c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get bean coffee settings
+            bean_settings = get_settings('bean')
+            
+            try:
+                # last_date is in DD/MM/YYYY format from database, parse explicitly
+                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                # HTML date input is always YYYY-MM-DD format
+                current_date_obj = parser.parse(date, dayfirst=False).date()
+                
+                # Sum all coffee sales between last date and current date
+                for row in imported_rows:
+                    if not row['date']:
+                        continue
+                    try:
+                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                        
+                        for coffee_desc in bean_settings:
+                            if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                                if last_date_obj < row_date <= current_date_obj:
+                                    coffees_from_csv += row['quantity']
+                                break
+                    except Exception as e:
+                        continue
+            except Exception as e:
+                pass
+        
+        conn.close()
+        
+        return jsonify({'success': True, 'coffeesSold': coffees_from_csv})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 

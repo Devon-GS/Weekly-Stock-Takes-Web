@@ -5,11 +5,45 @@
 {% block content %}
 <h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Bean Coffee Machine Tracking</h2>
 
-<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+<div
+    style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
     <p style="color: #333; font-size: 14px;">
-        <strong>Track vending machine sales:</strong> Record the number of each coffee type sold from the bean coffee machine.
+        <strong>Track vending machine sales:</strong> Record the number of each coffee type sold from the bean coffee
+        machine.
     </p>
 </div>
+
+<div style="margin-bottom: 25px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <label for="noteInput" style="font-weight: 600; color: #333; margin: 0;">Last Costing</label>
+        <span id="savedIndicator"
+            style="display: none; font-size: 12px; color: #2e7d32; font-weight: 500; animation: fadeInOut 2s ease-in-out;">
+            ✓ Saved
+        </span>
+    </div>
+    <input type="text" id="noteInput" placeholder="Last Costing"
+        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+</div>
+
+<style>
+    @keyframes fadeInOut {
+        0% {
+            opacity: 0;
+        }
+
+        10% {
+            opacity: 1;
+        }
+
+        90% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0;
+        }
+    }
+</style>
 
 <form id="beanForm">
     <div class="form-group">
@@ -46,7 +80,18 @@
         </div>
         <div class="form-group">
             <label for="coffeeSold">Total Coffee Sales *</label>
-            <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+                {% if coffees_from_csv > 0 %}
+                <span
+                    style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;"
+                    data-coffee-csv="{{ coffees_from_csv }}">
+                    From CSV: {{ "%.2f"|format(coffees_from_csv) }}
+                </span>
+                {% else %}
+                <span style="color: #999; font-size: 14px;">Enter manually or upload CSV</span>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -82,11 +127,14 @@
             <td>{{ record.cappuccino }}</td>
             <td>{{ record.flatWhite }}</td>
             <td><strong>{{ record.total }}</strong></td>
-            <td><span class="theoretical-sales" data-index="{{ loop.index0 }}" data-total="{{ record.total }}">-</span></td>
+            <td><span class="theoretical-sales" data-index="{{ loop.index0 }}" data-total="{{ record.total }}">-</span>
+            </td>
             <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
-            <td><span class="difference" data-index="{{ loop.index0 }}" data-theoretical="0" data-sales="{{ record.coffeeSold }}">-</span></td>
+            <td><span class="difference" data-index="{{ loop.index0 }}" data-theoretical="0"
+                    data-sales="{{ record.coffeeSold }}">-</span></td>
             <td>
-                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bean/{{ record.id }}', {{ record.id }})">Delete</button>
+                <button type="button" class="btn-small btn-danger"
+                    onclick="deleteRecord('/api/bean/{{ record.id }}', {{ record.id }})">Delete</button>
             </td>
         </tr>
         {% endfor %}
@@ -95,7 +143,9 @@
 {% else %}
 <div class="empty-state">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+        </path>
     </svg>
     <h3>No entries yet</h3>
     <p>Add your first bean coffee entry using the form above</p>
@@ -106,9 +156,40 @@
 
 {% block extra_js %}
 <script>
+    // ==================== NOTES & GOALS FUNCTIONALITY ====================
+    const noteInput = document.getElementById('noteInput');
+    const savedIndicator = document.getElementById('savedIndicator');
+    const STORAGE_KEY = 'bean_page_note';
+
+    // Load saved note on page load
+    function loadNote() {
+        const savedNote = localStorage.getItem(STORAGE_KEY);
+        if (savedNote) {
+            noteInput.value = savedNote;
+        }
+    }
+
+    // Save note to localStorage
+    function saveNote() {
+        localStorage.setItem(STORAGE_KEY, noteInput.value);
+
+        // Show saved indicator
+        savedIndicator.style.display = 'inline-block';
+        setTimeout(() => {
+            savedIndicator.style.display = 'none';
+        }, 2000);
+    }
+
+    // Save on blur
+    noteInput.addEventListener('blur', saveNote);
+
+    // Load note on page load
+    loadNote();
+
+    // ==================== BEAN COFFEE TRACKING FUNCTIONALITY ====================
     document.getElementById('beanForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const formData = {
             date: document.getElementById('date').value,
             americano: document.getElementById('americano').value,
@@ -142,27 +223,84 @@
 
     // Set today's date as default
     document.getElementById('date').valueAsDate = new Date();
-    
+
+    // Auto-fill coffee sold from CSV if available on page load
+    async function updateCoffeeSoldFromCSV() {
+        const dateInput = document.getElementById('date').value;
+        const coffeesSoldField = document.getElementById('coffeeSold');
+        const formGroup = coffeesSoldField.parentElement;
+
+        if (!dateInput) return;
+
+        try {
+            const response = await fetch(`/api/bean/coffee-sold/${dateInput}`);
+            const data = await response.json();
+
+            // Remove all dynamic elements (badge and help text)
+            const existingBadge = formGroup.querySelector('[data-coffee-csv]');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+            const existingHelpText = formGroup.querySelector('span[style*="color: #999"]');
+            if (existingHelpText) {
+                existingHelpText.remove();
+            }
+
+            if (data.success && data.coffeesSold > 0) {
+                coffeesSoldField.value = data.coffeesSold.toFixed(2);
+
+                // Create and add new badge
+                const badgeSpan = document.createElement('span');
+                badgeSpan.setAttribute('data-coffee-csv', data.coffeesSold);
+                badgeSpan.style.cssText = 'background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;';
+                badgeSpan.textContent = `From CSV: ${data.coffeesSold.toFixed(2)}`;
+                formGroup.appendChild(badgeSpan);
+            } else {
+                // No CSV data for this date
+                coffeesSoldField.value = '';
+
+                // Create and add help text
+                const helpText = document.createElement('span');
+                helpText.style.cssText = 'color: #999; font-size: 14px;';
+                helpText.textContent = 'Enter manually or upload CSV';
+                formGroup.appendChild(helpText);
+            }
+        } catch (error) {
+            console.error('Error fetching coffee sold data:', error);
+        }
+    }
+
+    // Initial load
+    updateCoffeeSoldFromCSV();
+
+    // Update when date changes
+    document.getElementById('date').addEventListener('change', updateCoffeeSoldFromCSV);
+
     // Calculate theoretical sales and difference
     function calculateSalesMetrics() {
         const theoreticalSalesCells = document.querySelectorAll('.theoretical-sales');
         const differenceCells = document.querySelectorAll('.difference');
-        const totals = Array.from(document.querySelectorAll('td:nth-child(7)')).map(td => parseFloat(td.textContent));
-        const sales = Array.from(document.querySelectorAll('td:nth-child(9)')).map(td => parseFloat(td.textContent));
-        
+        const rows = document.querySelectorAll('tbody tr');
+
+        // Get totals and sales in the order they appear in the table (newest first)
+        const totals = Array.from(rows).map(row => parseFloat(row.querySelector('td:nth-child(7)').textContent));
+        const sales = Array.from(rows).map(row => parseFloat(row.querySelector('td:nth-child(9)').textContent));
+
         theoreticalSalesCells.forEach((cell, index) => {
             let theoreticalSales = 0;
-            
-            // For the first entry, there's no previous entry, so show "-"
-            if (index === 0) {
+
+            // Since records are ordered by date DESC (newest first),
+            // the previous entry is at index + 1
+            if (index === rows.length - 1) {
+                // Last row (oldest entry) - no previous entry
                 cell.textContent = '-';
             } else {
-                // Theoretical sales = previous total - current total
-                const previousTotal = totals[index - 1];
+                // Theoretical sales = current total (index) - previous total (index + 1)
+                const previousTotal = totals[index + 1];
                 const currentTotal = totals[index];
-                theoreticalSales = previousTotal - currentTotal;
+                theoreticalSales = currentTotal - previousTotal;
                 cell.textContent = theoreticalSales.toFixed(0);
-                
+
                 // Color coding for theoretical sales
                 if (theoreticalSales < 0) {
                     cell.style.color = '#d32f2f';
@@ -170,22 +308,23 @@
                     cell.style.color = '#2e7d32';
                 }
             }
-            
+
             // Update data attribute for use in difference calculation
             cell.dataset.theoretical = theoreticalSales;
         });
-        
+
         // Calculate difference = theoretical sales - actual sales
         differenceCells.forEach((cell, index) => {
             const theoreticalCell = theoreticalSalesCells[index];
             const theoreticalSales = parseFloat(theoreticalCell.dataset.theoretical) || 0;
             const actualSales = sales[index] || 0;
-            
-            if (index === 0) {
+
+            if (index === rows.length - 1) {
+                // Last row (oldest entry) - no difference calculation
                 cell.textContent = '-';
             } else {
                 const difference = theoreticalSales - actualSales;
-                
+
                 if (difference === 0) {
                     cell.textContent = '-';
                     cell.style.color = '#666';
@@ -203,7 +342,7 @@
             }
         });
     }
-    
+
     // Calculate on page load
     calculateSalesMetrics();
 
