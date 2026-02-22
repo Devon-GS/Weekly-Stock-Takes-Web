@@ -156,15 +156,11 @@
         const coffeesSoldField = document.getElementById('coffeeSold');
         const formGroup = coffeesSoldField.parentElement;
 
-        console.log('[v0] updateCoffeeSoldFromCSV called with date:', dateInput);
-
         if (!dateInput) return;
 
         try {
             const response = await fetch(`/api/milk/coffee-sold/${dateInput}`);
             const data = await response.json();
-
-            console.log('[v0] API response:', data);
 
             // Remove all dynamic elements (badge and help text)
             const existingBadge = formGroup.querySelector('[data-coffee-csv]');
@@ -177,7 +173,6 @@
             }
 
             if (data.success && data.coffeesSold > 0) {
-                console.log('[v0] Setting coffee sold to:', data.coffeesSold);
                 coffeesSoldField.value = data.coffeesSold.toFixed(2);
 
                 // Create and add new badge
@@ -187,7 +182,6 @@
                 badgeSpan.textContent = `From CSV: ${data.coffeesSold.toFixed(2)}`;
                 formGroup.appendChild(badgeSpan);
             } else {
-                console.log('[v0] No CSV data or zero coffees sold');
                 // No CSV data for this date
                 coffeesSoldField.value = '';
 

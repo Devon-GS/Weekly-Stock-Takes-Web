@@ -10,6 +10,7 @@ import os
 from dateutil import parser
 import csv
 from io import StringIO
+import json
 
 app = Flask(__name__)
 DATABASE = 'stocktakes.db'
@@ -117,7 +118,6 @@ def format_date(date_str):
         
         return parsed_date.strftime('%d/%m/%Y')
     except Exception as e:
-        print(f"[v0] Error formatting date '{date_str}': {e}")
         return date_str
 
 def get_table_data(table_name):
@@ -144,12 +144,13 @@ def get_settings(category):
     c.execute("SELECT descriptions FROM csvSettings WHERE category = ?", (category,))
     result = c.fetchone()
     conn.close()
-    print(f"[v0] get_settings({category}) result: {result}")
+    
     if result:
-        descriptions = result['descriptions'].split('|')
-        print(f"[v0] Parsed descriptions: {descriptions}")
-        return descriptions
-    print(f"[v0] No settings found for category: {category}")
+        desc_str = result['descriptions']
+        if desc_str:
+            # Split by pipe delimiter if it's a string
+            descriptions = desc_str.split('|')
+            return descriptions
     return []
 
 def save_settings(category, descriptions):
@@ -322,7 +323,6 @@ def add_milk_entry():
         data = request.json
         date_input = data.get('date', '')
         date = format_date(date_input)
-        print(f"[v0] Milk entry - Input date: {date_input}, Formatted date: {date}")
         two_liter = data.get('twoLiter', 0)
         one_liter = data.get('oneLiter', 0)
         five_mil = data.get('fiveMil', 0)
@@ -354,8 +354,6 @@ def get_coffee_sold_for_date(date):
         conn = get_db_connection()
         c = conn.cursor()
         
-        print(f"[v0] Requested date: {date}")
-        
         # Get the latest milk entry before this date
         c.execute("SELECT date FROM milkUsage WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
         previous_record = c.fetchone()
@@ -365,23 +363,17 @@ def get_coffee_sold_for_date(date):
         # Determine the start date for the range
         if previous_record:
             last_date = previous_record['date']
-            print(f"[v0] Previous record found with date: {last_date}")
         else:
             # If no previous record, use a very old date so we get all sales up to current date
             last_date = "1900-01-01"
-            print(f"[v0] No previous record found, using start date: {last_date}")
         
         # Get imported sales data
         c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
         imported_rows = [dict(row) for row in c.fetchall()]
         
-        print(f"[v0] Imported rows count: {len(imported_rows)}")
-        
         if imported_rows:
             # Get milk coffee settings
             milk_settings = get_settings('milk')
-            
-            print(f"[v0] Coffee products to match: {milk_settings}")
             
             try:
                 # last_date is in DD/MM/YYYY format from database, parse explicitly
@@ -389,11 +381,7 @@ def get_coffee_sold_for_date(date):
                 # HTML date input is always YYYY-MM-DD format
                 current_date_obj = parser.parse(date, dayfirst=False).date()
                 
-                print(f"[v0] Last date parsed: {last_date} -> {last_date_obj}")
-                print(f"[v0] Date range: {last_date_obj} < date <= {current_date_obj}")
-                
                 # Sum all coffee sales between last date and current date
-                matches_found = 0
                 for row in imported_rows:
                     if not row['date']:
                         continue
@@ -403,28 +391,17 @@ def get_coffee_sold_for_date(date):
                         for coffee_desc in milk_settings:
                             if coffee_desc and coffee_desc.lower() in row['description'].lower():
                                 if last_date_obj < row_date <= current_date_obj:
-                                    print(f"[v0] Matched: {row['description']} on {row_date} qty: {row['quantity']}")
                                     coffees_from_csv += row['quantity']
-                                    matches_found += 1
                                 break
                     except Exception as e:
-                        print(f"[v0] Error parsing row date {row['date']}: {e}")
                         continue
-                
-                print(f"[v0] Total matches found: {matches_found}")
             except Exception as e:
-                print(f"[v0] Error calculating coffees from CSV: {e}")
-        else:
-            print(f"[v0] No imported sales data available")
+                pass
         
         conn.close()
         
-        print(f"[v0] Total coffees from CSV: {coffees_from_csv}")
         return jsonify({'success': True, 'coffeesSold': coffees_from_csv})
     except Exception as e:
-        print(f"[v0] Exception in get_coffee_sold_for_date: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/milk/<int:record_id>', methods=['DELETE'])
