@@ -103,11 +103,11 @@
         </div>
 
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label>Purchases CSV Product Descriptions</label>
+            <label>Sugar Purchases CSV Product Descriptions</label>
             <div id="sugar-purchases-descriptions" class="descriptions-list">
                 {% for desc in sugar_purchases_settings %}
                     <div class="description-item">
-                        <input type="text" value="{{ desc }}" class="sugar-purchases-desc" placeholder="e.g., Sugar Bags, Sweetener Boxes">
+                        <input type="text" value="{{ desc }}" class="sugar-purchases-desc" placeholder="e.g., Sugar Bags">
                         <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
                     </div>
                 {% else %}
@@ -116,6 +116,37 @@
             </div>
             <button type="button" class="btn-small" onclick="addDescriptionField('sugar-purchases')">+ Add Description</button>
             <button class="btn" style="margin-top: 10px;" onclick="saveSettings('sugar_purchases')">Save Sugar Purchases Settings</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label>Sweetener Purchases CSV Product Descriptions</label>
+            <div id="sweetener-purchases-descriptions" class="descriptions-list">
+                {% for desc in sweetener_purchases_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="sweetener-purchases-desc" placeholder="e.g., Sweetener Boxes">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('sweetener-purchases')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('sweetener_purchases')">Save Sweetener Purchases Settings</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label>Product Weight Settings</label>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="sugarWeight">Sugar Weight per Unit (g)</label>
+                    <input type="number" id="sugarWeight" name="sugarWeight" step="0.01" min="0.01" value="{{ sugar_weight }}" placeholder="e.g., 1000">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="sweetenerWeight">Sweetener Weight per Unit (g)</label>
+                    <input type="number" id="sweetenerWeight" name="sweetenerWeight" step="0.01" min="0.01" value="{{ sweetener_weight }}" placeholder="e.g., 500">
+                </div>
+            </div>
+            <button class="btn" style="margin-top: 10px;" onclick="saveWeightSettings()">Save Weight Settings</button>
         </div>
     </div>
 </div>
@@ -234,6 +265,9 @@
         } else if (category === 'sugar_purchases') {
             containerId = 'sugar-purchases-descriptions';
             inputSelector = 'input.sugar-purchases-desc';
+        } else if (category === 'sweetener_purchases') {
+            containerId = 'sweetener-purchases-descriptions';
+            inputSelector = 'input.sweetener-purchases-desc';
         } else {
             containerId = `${category}-descriptions`;
             inputSelector = `input.${category}-desc`;
@@ -256,6 +290,39 @@
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ descriptions: descriptions })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error saving settings', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving settings', 'error');
+        });
+    }
+    
+    function saveWeightSettings() {
+        const sugarWeight = parseFloat(document.getElementById('sugarWeight').value);
+        const sweetenerWeight = parseFloat(document.getElementById('sweetenerWeight').value);
+        
+        if (sugarWeight <= 0 || sweetenerWeight <= 0) {
+            showAlert('Please enter valid weight values greater than 0', 'error');
+            return;
+        }
+        
+        fetch(`/api/settings/sugar-weights`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                sugarWeight: sugarWeight,
+                sweetenerWeight: sweetenerWeight
+            })
         })
         .then(response => response.json())
         .then(data => {

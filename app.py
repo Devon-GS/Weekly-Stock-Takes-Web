@@ -771,7 +771,53 @@ def delete_lavazza_entry(record_id):
 def sugar_page():
     """Sugar and sweetener page"""
     records = get_table_data('coffeeSugar')
-    return render_template('sugar.html', records=records)
+    
+    # Get weight settings
+    sugar_weight_settings = get_settings('sugar_weight')
+    sweetener_weight_settings = get_settings('sweetener_weight')
+    
+    sugar_weight = float(sugar_weight_settings[0]) if sugar_weight_settings else 1000
+    sweetener_weight = float(sweetener_weight_settings[0]) if sweetener_weight_settings else 500
+    
+    # Calculate coffees sold from imported sales data
+    coffees_from_csv = 0
+    if records:  # Only calculate if we have existing records
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT date FROM coffeeSugar ORDER BY date DESC LIMIT 1")
+        latest_record = c.fetchone()
+        
+        if latest_record:
+            last_date = latest_record['date']
+            c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+            imported_rows = [dict(row) for row in c.fetchall()]
+            
+            if imported_rows:
+                # Get sugar coffee settings (from sales CSV settings)
+                sugar_settings = get_settings('sugar')
+                
+                try:
+                    # Parse the last date (DD/MM/YYYY format from DB)
+                    from datetime import datetime
+                    last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                    today = datetime.now().date()
+                    
+                    # Sum all coffee sales between last date and today
+                    for row in imported_rows:
+                        for coffee_desc in sugar_settings:
+                            if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                                try:
+                                    row_date = parser.parse(row['date'], dayfirst=True).date()
+                                    if row_date > last_date_obj:
+                                        coffees_from_csv += row['quantity']
+                                except:
+                                    continue
+                except Exception as e:
+                    print(f"Error calculating coffees from CSV: {e}")
+        
+        conn.close()
+    
+    return render_template('sugar.html', records=records, sugar_weight=sugar_weight, sweetener_weight=sweetener_weight, coffees_from_csv=coffees_from_csv)
 
 @app.route('/api/sugar', methods=['POST'])
 def add_sugar_entry():
@@ -781,10 +827,19 @@ def add_sugar_entry():
         date_str = format_date(data.get('date', ''))
         
         sugar_buy = int(data.get('sugarBuy', 0))
-        sugar_hand = float(data.get('sugarHand', 0)) / 4
         sweetner_buy = int(data.get('sweetnerBuy', 0))
-        sweetner_hand = float(data.get('sweetnerHand', 0))
         coffee_sold = float(data.get('coffeeSold', 0))
+        
+        # Get weight settings from database
+        sugar_weight_settings = get_settings('sugar_weight')
+        sweetener_weight_settings = get_settings('sweetener_weight')
+        
+        sugar_weight = float(sugar_weight_settings[0]) if sugar_weight_settings else 1000
+        sweetener_weight = float(sweetener_weight_settings[0]) if sweetener_weight_settings else 500
+        
+        # Store the actual user input (in grams), not the calculated units
+        sugar_hand = float(data.get('sugarHand', 0))
+        sweetner_hand = float(data.get('sweetnerHand', 0))
         
         conn = get_db_connection()
         c = conn.cursor()
@@ -807,6 +862,101 @@ def delete_sugar_entry(record_id):
     try:
         delete_record('coffeeSugar', record_id)
         return jsonify({'success': True, 'message': 'Entry deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/sugar/coffee-sold/<date>')
+def get_sugar_coffee_sold_for_date(date):
+    """Get coffee sold from CSV for a specific date"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get the latest sugar entry before this date
+        c.execute("SELECT date FROM coffeeSugar WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        previous_record = c.fetchone()
+        
+        coffees_from_csv = 0
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+        else:
+            # If no previous record, use a very old date so we get all sales up to current date
+            last_date = "1900-01-01"
+        
+        # Get imported sales data
+        c.execute("SELECT description, date, quantity FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get sugar coffee settings
+            sugar_settings = get_settings('sugar')
+            
+            try:
+                # last_date is in DD/MM/YYYY format from database, parse explicitly
+                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                # HTML date input is always YYYY-MM-DD format
+                current_date_obj = parser.parse(date, dayfirst=False).date()
+                
+                # Sum all coffee sales between last date and current date
+                for row in imported_rows:
+                    if not row['date']:
+                        continue
+                    try:
+                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                        
+                        for coffee_desc in sugar_settings:
+                            if coffee_desc and coffee_desc.lower() in row['description'].lower():
+                                if last_date_obj < row_date <= current_date_obj:
+                                    coffees_from_csv += row['quantity']
+                                break
+                    except Exception as e:
+                        continue
+            except Exception as e:
+                pass
+        
+        conn.close()
+        
+        return jsonify({'success': True, 'coffeesSold': coffees_from_csv})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/sugar/purchases')
+def get_sugar_purchases():
+    """Get sugar and sweetener purchases from CSV"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get imported purchases data
+        c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
+        imported_purchases_rows = [dict(row) for row in c.fetchall()]
+        
+        sugar_bought = 0
+        sweetener_bought = 0
+        
+        if imported_purchases_rows:
+            # Get sugar purchases settings
+            sugar_purchases_settings = get_settings('sugar_purchases')
+            sweetener_purchases_settings = get_settings('sweetener_purchases')
+            
+            # Sum all purchases matching sugar and sweetener descriptions
+            for row in imported_purchases_rows:
+                for sugar_desc in sugar_purchases_settings:
+                    if sugar_desc and sugar_desc.lower() in row['description'].lower():
+                        sugar_bought += row['quantity']
+                        break
+                else:
+                    # Only check sweetener if not matched as sugar
+                    for sweetener_desc in sweetener_purchases_settings:
+                        if sweetener_desc and sweetener_desc.lower() in row['description'].lower():
+                            sweetener_bought += row['quantity']
+                            break
+        
+        conn.close()
+        
+        return jsonify({'success': True, 'sugarBought': sugar_bought, 'sweetenerBought': sweetener_bought})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -851,6 +1001,14 @@ def settings_page():
     lavazza_purchases_settings = get_settings('lavazza_purchases')
     sugar_settings = get_settings('sugar')
     sugar_purchases_settings = get_settings('sugar_purchases')
+    sweetener_purchases_settings = get_settings('sweetener_purchases')
+    
+    # Get weight settings
+    sugar_weight_settings = get_settings('sugar_weight')
+    sweetener_weight_settings = get_settings('sweetener_weight')
+    
+    sugar_weight = float(sugar_weight_settings[0]) if sugar_weight_settings else 1000
+    sweetener_weight = float(sweetener_weight_settings[0]) if sweetener_weight_settings else 500
     
     return render_template('settings.html',
                           milk_settings=milk_settings,
@@ -858,7 +1016,10 @@ def settings_page():
                           lavazza_settings=lavazza_settings,
                           lavazza_purchases_settings=lavazza_purchases_settings,
                           sugar_settings=sugar_settings,
-                          sugar_purchases_settings=sugar_purchases_settings)
+                          sugar_purchases_settings=sugar_purchases_settings,
+                          sweetener_purchases_settings=sweetener_purchases_settings,
+                          sugar_weight=sugar_weight,
+                          sweetener_weight=sweetener_weight)
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):
@@ -875,6 +1036,36 @@ def save_category_settings(category):
             return jsonify({'success': True, 'message': f'{category.title()} settings saved'})
         else:
             return jsonify({'success': False, 'error': 'At least one description required'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/settings/sugar-weights', methods=['POST'])
+def save_sugar_weights():
+    """Save sugar and sweetener weight settings"""
+    try:
+        data = request.json
+        sugar_weight = float(data.get('sugarWeight', 0))
+        sweetener_weight = float(data.get('sweetenerWeight', 0))
+        
+        if sugar_weight <= 0 or sweetener_weight <= 0:
+            return jsonify({'success': False, 'error': 'Weight must be greater than 0'}), 400
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Delete existing weights
+        c.execute("DELETE FROM csvSettings WHERE category IN ('sugar_weight', 'sweetener_weight')")
+        
+        # Insert new weights (storing weight as the description field)
+        c.execute("INSERT INTO csvSettings (category, descriptions) VALUES (?, ?)", 
+                  ('sugar_weight', str(sugar_weight)))
+        c.execute("INSERT INTO csvSettings (category, descriptions) VALUES (?, ?)", 
+                  ('sweetener_weight', str(sweetener_weight)))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Weight settings saved'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 

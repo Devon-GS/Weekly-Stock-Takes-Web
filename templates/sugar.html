@@ -20,7 +20,10 @@
     <div class="form-row">
         <div class="form-group">
             <label for="sugarBuy">Sugar Bought (units)</label>
-            <input type="number" id="sugarBuy" name="sugarBuy" min="0" value="0">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="sugarBuy" name="sugarBuy" min="0" value="0">
+                <span style="color: #999; font-size: 14px; min-width: 120px;" id="sugarBuyBadge">From CSV: -</span>
+            </div>
         </div>
         <div class="form-group">
             <label for="sugarHand">Sugar On Hand (g)</label>
@@ -31,7 +34,10 @@
     <div class="form-row">
         <div class="form-group">
             <label for="sweetnerBuy">Sweetener Bought (units)</label>
-            <input type="number" id="sweetnerBuy" name="sweetnerBuy" min="0" value="0">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="sweetnerBuy" name="sweetnerBuy" min="0" value="0">
+                <span style="color: #999; font-size: 14px; min-width: 120px;" id="sweetenerBuyBadge">From CSV: -</span>
+            </div>
         </div>
         <div class="form-group">
             <label for="sweetnerHand">Sweetener On Hand (g)</label>
@@ -41,7 +47,16 @@
 
     <div class="form-group">
         <label for="coffeeSold">Coffees Sold *</label>
-        <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="coffeeSold" name="coffeeSold" step="0.01" min="0" required>
+            {% if coffees_from_csv > 0 %}
+            <span style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;" data-coffee-csv="{{ coffees_from_csv }}">
+                From CSV: {{ "%.2f"|format(coffees_from_csv) }}
+            </span>
+            {% else %}
+            <span style="color: #999; font-size: 14px;">Enter manually or upload CSV</span>
+            {% endif %}
+        </div>
     </div>
 
     <button type="submit">Save Sugar Entry</button>
@@ -67,9 +82,9 @@
         <tr>
             <td>{{ record.date }}</td>
             <td>{{ record.sugarBuy }}</td>
-            <td>{{ "%.2f"|format(record.sugarHand) }}g</td>
+            <td><span class="sugar-units" data-grams="{{ record.sugarHand }}" data-weight="{{ sugar_weight }}">-</span></td>
             <td>{{ record.sweetnerBuy }}</td>
-            <td>{{ "%.2f"|format(record.sweetnerHand) }}g</td>
+            <td><span class="sweetener-units" data-grams="{{ record.sweetnerHand }}" data-weight="{{ sweetener_weight }}">-</span></td>
             <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
             <td>
                 <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/sugar/{{ record.id }}', {{ record.id }})">Delete</button>
@@ -92,6 +107,97 @@
 
 {% block extra_js %}
 <script>
+    // Set today's date as default
+    document.getElementById('date').valueAsDate = new Date();
+    
+    // Auto-fill coffee sold from CSV if available on page load
+    async function updateCoffeeSoldFromCSV() {
+        const dateInput = document.getElementById('date').value;
+        const coffeesSoldField = document.getElementById('coffeeSold');
+        const formGroup = coffeesSoldField.parentElement;
+        
+        if (!dateInput) return;
+        
+        try {
+            const response = await fetch(`/api/sugar/coffee-sold/${dateInput}`);
+            const data = await response.json();
+            
+            // Remove all dynamic elements (badge and help text)
+            const existingBadge = formGroup.querySelector('[data-coffee-csv]');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+            const existingHelpText = formGroup.querySelector('span[style*="color: #999"]');
+            if (existingHelpText) {
+                existingHelpText.remove();
+            }
+            
+            if (data.success && data.coffeesSold > 0) {
+                coffeesSoldField.value = data.coffeesSold.toFixed(2);
+                
+                // Create and add new badge
+                const badgeSpan = document.createElement('span');
+                badgeSpan.setAttribute('data-coffee-csv', data.coffeesSold);
+                badgeSpan.style.cssText = 'background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px;';
+                badgeSpan.textContent = `From CSV: ${data.coffeesSold.toFixed(2)}`;
+                formGroup.appendChild(badgeSpan);
+            } else {
+                // No CSV data for this date
+                coffeesSoldField.value = '';
+                
+                // Create and add help text
+                const helpText = document.createElement('span');
+                helpText.style.cssText = 'color: #999; font-size: 14px;';
+                helpText.textContent = 'Enter manually or upload CSV';
+                formGroup.appendChild(helpText);
+            }
+        } catch (error) {
+            console.error('Error fetching coffee sold data:', error);
+        }
+    }
+    
+    // Initial load
+    updateCoffeeSoldFromCSV();
+    updateSugarSweetenerPurchases();
+    
+    // Update when date changes
+    document.getElementById('date').addEventListener('change', updateCoffeeSoldFromCSV);
+    
+    // Auto-fill sugar and sweetener purchases from CSV on page load
+    async function updateSugarSweetenerPurchases() {
+        try {
+            const response = await fetch(`/api/sugar/purchases`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const sugarBuyBadge = document.getElementById('sugarBuyBadge');
+                const sweetenerBuyBadge = document.getElementById('sweetenerBuyBadge');
+                
+                if (data.sugarBought > 0) {
+                    sugarBuyBadge.textContent = `From CSV: ${data.sugarBought.toFixed(0)}`;
+                    sugarBuyBadge.style.color = '#2e7d32';
+                    sugarBuyBadge.style.fontWeight = '600';
+                    document.getElementById('sugarBuy').value = data.sugarBought.toFixed(0);
+                } else {
+                    sugarBuyBadge.textContent = 'From CSV: -';
+                    sugarBuyBadge.style.color = '#999';
+                }
+                
+                if (data.sweetenerBought > 0) {
+                    sweetenerBuyBadge.textContent = `From CSV: ${data.sweetenerBought.toFixed(0)}`;
+                    sweetenerBuyBadge.style.color = '#2e7d32';
+                    sweetenerBuyBadge.style.fontWeight = '600';
+                    document.getElementById('sweetnerBuy').value = data.sweetenerBought.toFixed(0);
+                } else {
+                    sweetenerBuyBadge.textContent = 'From CSV: -';
+                    sweetenerBuyBadge.style.color = '#999';
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching purchases data:', error);
+        }
+    }
+    
     document.getElementById('sugarForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -127,5 +233,28 @@
 
     // Set today's date as default
     document.getElementById('date').valueAsDate = new Date();
+    
+    // Calculate units from grams for all rows
+    function calculateUnits() {
+        const sugarUnitCells = document.querySelectorAll('.sugar-units');
+        const sweetenerUnitCells = document.querySelectorAll('.sweetener-units');
+        
+        sugarUnitCells.forEach(cell => {
+            const userInput = parseFloat(cell.dataset.grams) || 0;
+            const weightPerUnit = parseFloat(cell.dataset.weight) || 1000;
+            const units = userInput / weightPerUnit;
+            cell.textContent = units > 0 ? units.toFixed(2) : '0.00';
+        });
+        
+        sweetenerUnitCells.forEach(cell => {
+            const userInput = parseFloat(cell.dataset.grams) || 0;
+            const weightPerUnit = parseFloat(cell.dataset.weight) || 500;
+            const units = userInput / weightPerUnit;
+            cell.textContent = units > 0 ? units.toFixed(2) : '0.00';
+        });
+    }
+    
+    // Calculate on page load
+    calculateUnits();
 </script>
 {% endblock %}
