@@ -72,6 +72,73 @@
             color: white;
         }
 
+        .department-nav {
+            background: white;
+            padding: 12px 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            border-bottom: 3px solid #f0f0f0;
+        }
+
+        .department-nav button {
+            background: none;
+            border: none;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .department-nav button:hover {
+            background: #f0f0f0;
+            color: #764ba2;
+        }
+
+        .department-nav button.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .department-tabs {
+            background: white;
+            padding: 12px 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .department-tabs a {
+            text-decoration: none;
+            color: #666;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .department-tabs a:hover {
+            background: #f0f0f0;
+            color: #667eea;
+        }
+
+        .department-tabs a.active {
+            background: #667eea;
+            color: white;
+        }
+
         .content {
             background: white;
             padding: 30px;
@@ -348,13 +415,17 @@
 
         <nav>
             <a href="/" class="{% if request.path == '/' %}active{% endif %}">Dashboard</a>
-            <a href="/milk" class="{% if request.path == '/milk' %}active{% endif %}">Milk Usage</a>
-            <a href="/bean" class="{% if request.path == '/bean' %}active{% endif %}">Bean Coffee</a>
-            <a href="/lavazza" class="{% if request.path == '/lavazza' %}active{% endif %}">Lavazza Coffee</a>
-            <a href="/sugar" class="{% if request.path == '/sugar' %}active{% endif %}">Sugar & Sweetener</a>
             <a href="/import" class="{% if request.path == '/import' %}active{% endif %}">Import CSV</a>
-            <a href="/settings" class="{% if request.path == '/settings' %}active{% endif %}">Settings</a>
         </nav>
+
+        <div class="department-nav">
+            <button class="dept-btn active" data-department="coffee-milk">Coffee and Milk</button>
+            <button class="dept-btn" data-department="bakery">Bakery</button>
+        </div>
+
+        <div class="department-tabs" id="departmentTabs">
+            <!-- Tabs will be populated by JavaScript -->
+        </div>
 
         <div class="content">
             {% block content %}{% endblock %}
@@ -368,6 +439,87 @@
     <script>
         // Set dynamic year in footer
         document.getElementById('year').textContent = new Date().getFullYear();
+
+        // Department and Tab Management
+        const departmentTabs = {
+            'coffee-milk': [
+                { name: 'Milk Usage', path: '/milk' },
+                { name: 'Bean Coffee', path: '/bean' },
+                { name: 'Lavazza Coffee', path: '/lavazza' },
+                { name: 'Sugar & Sweetener', path: '/sugar' },
+                { name: 'Settings', path: '/settings' }
+            ],
+            'bakery': [
+                { name: 'Dough', path: '/bakery/dough' },
+                { name: 'Egg Wash', path: '/bakery/egg-wash' },
+                { name: 'Mayo Usage', path: '/bakery/mayo' },
+                { name: 'Sweet Chilli Usage', path: '/bakery/sweet-chilli' }
+            ]
+        };
+
+        let currentDepartment = 'coffee-milk';
+        let activeTabs = {
+            'coffee-milk': '/milk',
+            'bakery': '/bakery/dough'
+        };
+
+        function updateDepartmentTabs() {
+            const tabsContainer = document.getElementById('departmentTabs');
+            const tabs = departmentTabs[currentDepartment];
+            
+            tabsContainer.innerHTML = '';
+            tabs.forEach(tab => {
+                const a = document.createElement('a');
+                a.href = tab.path;
+                a.textContent = tab.name;
+                if (tab.path === activeTabs[currentDepartment]) {
+                    a.classList.add('active');
+                }
+                tabsContainer.appendChild(a);
+            });
+        }
+
+        function switchDepartment(dept) {
+            currentDepartment = dept;
+            
+            // Update active button
+            document.querySelectorAll('.dept-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-department="${dept}"]`).classList.add('active');
+            
+            // Update tabs
+            updateDepartmentTabs();
+            
+            // Navigate to the active tab for this department
+            const activeTabPath = activeTabs[dept];
+            if (activeTabPath) {
+                window.location.href = activeTabPath;
+            }
+        }
+
+        // Set up department button listeners
+        document.querySelectorAll('.dept-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                switchDepartment(this.dataset.department);
+            });
+        });
+
+        // Initialize tabs based on current path
+        const currentPath = window.location.pathname;
+        
+        // Determine current department based on path
+        if (currentPath.startsWith('/bakery')) {
+            currentDepartment = 'bakery';
+            activeTabs['bakery'] = currentPath;
+        } else if (currentPath === '/milk' || currentPath === '/bean' || currentPath === '/lavazza' || currentPath === '/sugar') {
+            currentDepartment = 'coffee-milk';
+            activeTabs['coffee-milk'] = currentPath;
+        }
+
+        // Update initial state
+        document.querySelector(`[data-department="${currentDepartment}"]`).classList.add('active');
+        updateDepartmentTabs();
 
         function showAlert(message, type) {
             const alert = document.createElement('div');

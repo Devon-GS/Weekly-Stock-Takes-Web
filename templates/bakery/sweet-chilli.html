@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Sweet Chilli Usage - Bakery Tracking{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px; color: #333; font-size: 24px;">Sweet Chilli Usage Tracking</h2>
+
+<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <p style="color: #333; font-size: 14px;">
+        <strong>Track sweet chilli usage:</strong> Record sweet chilli consumption and inventory data.
+    </p>
+</div>
+
+<form id="sweetChilliForm">
+    <div class="form-row">
+        <div class="form-group">
+            <label for="date">Date *</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="sweetChilliQuantity">Sweet Chilli On Hand (ml)</label>
+            <input type="number" id="sweetChilliQuantity" name="sweetChilliQuantity" step="1" min="0" value="0">
+        </div>
+        <div class="form-group">
+            <label for="sweetChilliUsed">Sweet Chilli Used (ml)</label>
+            <input type="number" id="sweetChilliUsed" name="sweetChilliUsed" step="1" min="0" value="0">
+        </div>
+    </div>
+
+    <button type="submit" class="btn">Save Entry</button>
+</form>
+
+<h3 style="margin-top: 40px; margin-bottom: 20px; color: #333; font-size: 18px;">Sweet Chilli Usage History</h3>
+
+<div style="color: #999; text-align: center; padding: 40px; font-size: 14px;">
+    No entries yet
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('date').valueAsDate = new Date();
+    
+    document.getElementById('sweetChilliForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = {
+            date: document.getElementById('date').value,
+            sweetChilliQuantity: document.getElementById('sweetChilliQuantity').value,
+            sweetChilliUsed: document.getElementById('sweetChilliUsed').value
+        };
+
+        try {
+            const response = await fetch('/api/bakery/sweet-chilli', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert(data.message, 'success');
+                document.getElementById('sweetChilliForm').reset();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.error, 'error');
+            }
+        } catch (error) {
+            showAlert('An error occurred: ' + error.message, 'error');
+        }
+    });
+</script>
+{% endblock %}

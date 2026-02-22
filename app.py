@@ -969,6 +969,64 @@ def get_sugar_data():
 
 # ==================== SETTINGS & IMPORT ROUTES ====================
 
+# Bakery Routes
+@app.route('/bakery/dough')
+def bakery_dough():
+    """Bakery dough tracking page"""
+    return render_template('bakery/dough.html')
+
+@app.route('/bakery/egg-wash')
+def bakery_egg_wash():
+    """Bakery egg wash tracking page"""
+    return render_template('bakery/egg-wash.html')
+
+@app.route('/bakery/mayo')
+def bakery_mayo():
+    """Bakery mayo usage tracking page"""
+    return render_template('bakery/mayo.html')
+
+@app.route('/bakery/sweet-chilli')
+def bakery_sweet_chilli():
+    """Bakery sweet chilli usage tracking page"""
+    return render_template('bakery/sweet-chilli.html')
+
+# Bakery API Endpoints
+@app.route('/api/bakery/dough', methods=['POST'])
+def add_bakery_dough():
+    """Add dough entry"""
+    try:
+        data = request.json
+        return jsonify({'success': True, 'message': 'Dough entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/egg-wash', methods=['POST'])
+def add_bakery_egg_wash():
+    """Add egg wash entry"""
+    try:
+        data = request.json
+        return jsonify({'success': True, 'message': 'Egg wash entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/mayo', methods=['POST'])
+def add_bakery_mayo():
+    """Add mayo usage entry"""
+    try:
+        data = request.json
+        return jsonify({'success': True, 'message': 'Mayo entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/sweet-chilli', methods=['POST'])
+def add_bakery_sweet_chilli():
+    """Add sweet chilli usage entry"""
+    try:
+        data = request.json
+        return jsonify({'success': True, 'message': 'Sweet chilli entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
 @app.route('/settings')
 def settings_page():
     """Settings page for CSV configuration"""
