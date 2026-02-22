@@ -89,6 +89,23 @@ def init_db():
         imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Bakery dough table
+    c.execute('''CREATE TABLE IF NOT EXISTS bakeryDough (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        cakeFlour REAL DEFAULT 0,
+        breadFlour REAL DEFAULT 0,
+        yeast REAL DEFAULT 0,
+        oil REAL DEFAULT 0,
+        sugar REAL DEFAULT 0,
+        cakeFlourBought REAL DEFAULT 0,
+        breadFlourBought REAL DEFAULT 0,
+        yeastBought REAL DEFAULT 0,
+        oilBought REAL DEFAULT 0,
+        sugarBought REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
     conn.commit()
     conn.close()
 
@@ -973,7 +990,12 @@ def get_sugar_data():
 @app.route('/bakery/dough')
 def bakery_dough():
     """Bakery dough tracking page"""
-    return render_template('bakery/dough.html')
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM bakeryDough ORDER BY date DESC")
+    records = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return render_template('bakery/dough.html', records=records)
 
 @app.route('/bakery/egg-wash')
 def bakery_egg_wash():
@@ -996,7 +1018,39 @@ def add_bakery_dough():
     """Add dough entry"""
     try:
         data = request.json
+        date_str = format_date(data.get('date', ''))
+        cake_flour = float(data.get('cakeFlour', 0))
+        bread_flour = float(data.get('breadFlour', 0))
+        yeast = float(data.get('yeast', 0))
+        oil = float(data.get('oil', 0))
+        sugar = float(data.get('sugar', 0))
+        cake_flour_bought = float(data.get('cakeFlourBought', 0))
+        bread_flour_bought = float(data.get('breadFlourBought', 0))
+        yeast_bought = float(data.get('yeastBought', 0))
+        oil_bought = float(data.get('oilBought', 0))
+        sugar_bought = float(data.get('sugarBought', 0))
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("""INSERT INTO bakeryDough
+                    (date, cakeFlour, breadFlour, yeast, oil, sugar, cakeFlourBought, breadFlourBought, yeastBought, oilBought, sugarBought)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 (date_str, cake_flour, bread_flour, yeast, oil, sugar, cake_flour_bought, bread_flour_bought, yeast_bought, oil_bought, sugar_bought))
+        
+        conn.commit()
+        conn.close()
+        
         return jsonify({'success': True, 'message': 'Dough entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/dough/<int:record_id>', methods=['DELETE'])
+def delete_bakery_dough(record_id):
+    """Delete bakery dough entry"""
+    try:
+        delete_record('bakeryDough', record_id)
+        return jsonify({'success': True, 'message': 'Entry deleted successfully'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -1029,7 +1083,7 @@ def add_bakery_sweet_chilli():
 
 @app.route('/settings')
 def settings_page():
-    """Settings page for CSV configuration"""
+    """Settings page for CSV configuration - Coffee and Milk"""
     milk_settings = get_settings('milk')
     bean_settings = get_settings('bean')
     lavazza_settings = get_settings('lavazza')
@@ -1055,6 +1109,11 @@ def settings_page():
                           sweetener_purchases_settings=sweetener_purchases_settings,
                           sugar_weight=sugar_weight,
                           sweetener_weight=sweetener_weight)
+
+@app.route('/bakery/settings')
+def bakery_settings_page():
+    """Settings page for Bakery configuration"""
+    return render_template('bakery/settings.html')
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):

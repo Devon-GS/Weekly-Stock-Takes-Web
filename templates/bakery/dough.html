@@ -19,14 +19,69 @@
         </div>
     </div>
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="doughQuantity">Dough Quantity (kg)</label>
-            <input type="number" id="doughQuantity" name="doughQuantity" step="0.01" min="0" value="0">
+    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);">
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 16px; font-weight: 600;">Stock On Hand</h3>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="cakeFlour">Cake flour on hand *</label>
+                <input type="number" id="cakeFlour" name="cakeFlour" step="0.01" min="0" value="0" required>
+            </div>
+            <div class="form-group">
+                <label for="breadFlour">Bread flour on hand *</label>
+                <input type="number" id="breadFlour" name="breadFlour" step="0.01" min="0" value="0" required>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="doughUsed">Dough Used (kg)</label>
-            <input type="number" id="doughUsed" name="doughUsed" step="0.01" min="0" value="0">
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="yeast">Yeast on hand *</label>
+                <input type="number" id="yeast" name="yeast" step="0.01" min="0" value="0" required>
+            </div>
+            <div class="form-group">
+                <label for="oil">Oil on hand *</label>
+                <input type="number" id="oil" name="oil" step="0.01" min="0" value="0" required>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sugar">Sugar on hand *</label>
+                <input type="number" id="sugar" name="sugar" step="0.01" min="0" value="0" required>
+            </div>
+        </div>
+    </div>
+
+    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);">
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 16px; font-weight: 600;">Stock Bought In</h3>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="cakeFlourBought">Cake flour bought *</label>
+                <input type="number" id="cakeFlourBought" name="cakeFlourBought" step="0.01" min="0" value="0" required>
+            </div>
+            <div class="form-group">
+                <label for="breadFlourBought">Bread flour bought *</label>
+                <input type="number" id="breadFlourBought" name="breadFlourBought" step="0.01" min="0" value="0" required>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="yeastBought">Yeast bought *</label>
+                <input type="number" id="yeastBought" name="yeastBought" step="0.01" min="0" value="0" required>
+            </div>
+            <div class="form-group">
+                <label for="oilBought">Oil bought *</label>
+                <input type="number" id="oilBought" name="oilBought" step="0.01" min="0" value="0" required>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="sugarBought">Sugar bought *</label>
+                <input type="number" id="sugarBought" name="sugarBought" step="0.01" min="0" value="0" required>
+            </div>
         </div>
     </div>
 
@@ -35,9 +90,56 @@
 
 <h3 style="margin-top: 40px; margin-bottom: 20px; color: #333; font-size: 18px;">Dough History</h3>
 
+{% if records %}
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th colspan="5" style="text-align: center; background: #f9f9f9;">Stock On Hand</th>
+            <th colspan="5" style="text-align: center; background: #f5f5f5;">Stock Bought In</th>
+            <th>Action</th>
+        </tr>
+        <tr>
+            <th>Date</th>
+            <th>Cake Flour</th>
+            <th>Bread Flour</th>
+            <th>Yeast</th>
+            <th>Oil</th>
+            <th>Sugar</th>
+            <th>Cake Flour</th>
+            <th>Bread Flour</th>
+            <th>Yeast</th>
+            <th>Oil</th>
+            <th>Sugar</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+        <tr>
+            <td>{{ record.date }}</td>
+            <td>{{ "%.2f"|format(record.cakeFlour) }}</td>
+            <td>{{ "%.2f"|format(record.breadFlour) }}</td>
+            <td>{{ "%.2f"|format(record.yeast) }}</td>
+            <td>{{ "%.2f"|format(record.oil) }}</td>
+            <td>{{ "%.2f"|format(record.sugar) }}</td>
+            <td>{{ "%.2f"|format(record.get('cakeFlourBought', 0)) }}</td>
+            <td>{{ "%.2f"|format(record.get('breadFlourBought', 0)) }}</td>
+            <td>{{ "%.2f"|format(record.get('yeastBought', 0)) }}</td>
+            <td>{{ "%.2f"|format(record.get('oilBought', 0)) }}</td>
+            <td>{{ "%.2f"|format(record.get('sugarBought', 0)) }}</td>
+            <td>
+                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/dough/{{ record.id }}', {{ record.id }})">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
 <div style="color: #999; text-align: center; padding: 40px; font-size: 14px;">
     No entries yet
 </div>
+{% endif %}
 
 {% endblock %}
 
@@ -50,8 +152,16 @@
         
         const formData = {
             date: document.getElementById('date').value,
-            doughQuantity: document.getElementById('doughQuantity').value,
-            doughUsed: document.getElementById('doughUsed').value
+            cakeFlour: document.getElementById('cakeFlour').value,
+            breadFlour: document.getElementById('breadFlour').value,
+            yeast: document.getElementById('yeast').value,
+            oil: document.getElementById('oil').value,
+            sugar: document.getElementById('sugar').value,
+            cakeFlourBought: document.getElementById('cakeFlourBought').value,
+            breadFlourBought: document.getElementById('breadFlourBought').value,
+            yeastBought: document.getElementById('yeastBought').value,
+            oilBought: document.getElementById('oilBought').value,
+            sugarBought: document.getElementById('sugarBought').value
         };
 
         try {

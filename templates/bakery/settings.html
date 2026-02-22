@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Bakery Settings{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Bakery Settings</h2>
+
+<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <p style="color: #333; font-size: 14px;">
+        <strong>Configure bakery settings:</strong> Set up product descriptions and other bakery-specific tracking parameters.
+    </p>
+</div>
+
+<div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <div class="form-group" style="margin-bottom: 30px;">
+        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Dough Settings</label>
+        
+        <div class="form-group">
+            <label>Dough CSV Product Descriptions</label>
+            <div id="dough-descriptions" class="descriptions-list">
+                <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('dough')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('dough')">Save Dough Settings</button>
+        </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Egg Wash Settings</label>
+        
+        <div class="form-group">
+            <label>Egg Wash CSV Product Descriptions</label>
+            <div id="egg-wash-descriptions" class="descriptions-list">
+                <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('egg-wash')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('egg_wash')">Save Egg Wash Settings</button>
+        </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Mayo Usage Settings</label>
+        
+        <div class="form-group">
+            <label>Mayo CSV Product Descriptions</label>
+            <div id="mayo-descriptions" class="descriptions-list">
+                <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('mayo')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('mayo')">Save Mayo Settings</button>
+        </div>
+    </div>
+
+    <div class="form-group" style="padding-top: 20px; border-top: 1px solid #e0e0e0;">
+        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Sweet Chilli Usage Settings</label>
+        
+        <div class="form-group">
+            <label>Sweet Chilli CSV Product Descriptions</label>
+            <div id="sweet-chilli-descriptions" class="descriptions-list">
+                <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('sweet-chilli')">+ Add Description</button>
+            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('sweet_chilli')">Save Sweet Chilli Settings</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function addDescriptionField(category) {
+        let containerId, inputClass;
+        
+        if (category === 'dough') {
+            containerId = 'dough-descriptions';
+            inputClass = 'dough-desc';
+        } else if (category === 'egg-wash') {
+            containerId = 'egg-wash-descriptions';
+            inputClass = 'egg-wash-desc';
+        } else if (category === 'mayo') {
+            containerId = 'mayo-descriptions';
+            inputClass = 'mayo-desc';
+        } else if (category === 'sweet-chilli') {
+            containerId = 'sweet-chilli-descriptions';
+            inputClass = 'sweet-chilli-desc';
+        }
+        
+        const container = document.getElementById(containerId);
+        
+        // Remove placeholder if exists
+        const placeholder = container.querySelector('p');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        
+        const item = document.createElement('div');
+        item.className = 'description-item';
+        item.innerHTML = `
+            <input type="text" class="${inputClass}" placeholder="e.g., Product Name">
+            <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+        `;
+        container.appendChild(item);
+    }
+
+    function removeDescription(btn) {
+        btn.parentElement.remove();
+    }
+
+    function saveSettings(category) {
+        let containerId, inputSelector;
+        
+        if (category === 'dough') {
+            containerId = 'dough-descriptions';
+            inputSelector = 'input.dough-desc';
+        } else if (category === 'egg_wash') {
+            containerId = 'egg-wash-descriptions';
+            inputSelector = 'input.egg-wash-desc';
+        } else if (category === 'mayo') {
+            containerId = 'mayo-descriptions';
+            inputSelector = 'input.mayo-desc';
+        } else if (category === 'sweet_chilli') {
+            containerId = 'sweet-chilli-descriptions';
+            inputSelector = 'input.sweet-chilli-desc';
+        }
+        
+        const container = document.getElementById(containerId);
+        const inputs = container.querySelectorAll(inputSelector);
+        const descriptions = Array.from(inputs)
+            .map(input => input.value.trim())
+            .filter(desc => desc.length > 0);
+
+        if (descriptions.length === 0) {
+            alert('Please add at least one description');
+            return;
+        }
+
+        fetch(`/api/settings/${category}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ descriptions: descriptions })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error saving settings', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving settings', 'error');
+        });
+    }
+</script>
+{% endblock %}
