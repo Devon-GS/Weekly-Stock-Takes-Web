@@ -1054,6 +1054,90 @@ def delete_bakery_dough(record_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+@app.route('/api/bakery/dough-purchases/<date>')
+def get_dough_purchases_for_date(date):
+    """Get dough ingredient purchases from CSV - sum all matching products"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        purchases = {
+            'cakeFlourBought': 0,
+            'breadFlourBought': 0,
+            'yeastBought': 0,
+            'oilBought': 0,
+            'sugarBought': 0
+        }
+        
+        # Get imported purchase data
+        c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        print(f"[v0] Found {len(imported_rows)} imported rows")
+        
+        if imported_rows:
+            # Get dough purchase settings
+            cake_flour_settings = get_settings('cake_flour_bought')
+            bread_flour_settings = get_settings('bread_flour_bought')
+            yeast_settings = get_settings('yeast_bought')
+            oil_settings = get_settings('oil_bought')
+            sugar_settings = get_settings('sugar_bought')
+            
+            print(f"[v0] Settings - Cake flour: {cake_flour_settings}, Bread flour: {bread_flour_settings}, Yeast: {yeast_settings}, Oil: {oil_settings}, Sugar: {sugar_settings}")
+            
+            # Sum all purchases that match product descriptions
+            for row in imported_rows:
+                if not row['description']:
+                    continue
+                
+                description_lower = row['description'].lower()
+                quantity = row['quantity']
+                
+                # Check cake flour
+                for desc in cake_flour_settings:
+                    if desc and desc.lower() in description_lower:
+                        purchases['cakeFlourBought'] += quantity
+                        print(f"[v0] Matched cake flour: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+                
+                # Check bread flour
+                for desc in bread_flour_settings:
+                    if desc and desc.lower() in description_lower:
+                        purchases['breadFlourBought'] += quantity
+                        print(f"[v0] Matched bread flour: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+                
+                # Check yeast
+                for desc in yeast_settings:
+                    if desc and desc.lower() in description_lower:
+                        purchases['yeastBought'] += quantity
+                        print(f"[v0] Matched yeast: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+                
+                # Check oil
+                for desc in oil_settings:
+                    if desc and desc.lower() in description_lower:
+                        purchases['oilBought'] += quantity
+                        print(f"[v0] Matched oil: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+                
+                # Check sugar
+                for desc in sugar_settings:
+                    if desc and desc.lower() in description_lower:
+                        purchases['sugarBought'] += quantity
+                        print(f"[v0] Matched sugar: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+        
+        conn.close()
+        
+        print(f"[v0] Final purchases result: {purchases}")
+        return jsonify({'success': True, 'purchases': purchases})
+    except Exception as e:
+        print(f"[v0] Exception in get_dough_purchases_for_date: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
 @app.route('/api/bakery/egg-wash', methods=['POST'])
 def add_bakery_egg_wash():
     """Add egg wash entry"""
@@ -1113,7 +1197,18 @@ def settings_page():
 @app.route('/bakery/settings')
 def bakery_settings_page():
     """Settings page for Bakery configuration"""
-    return render_template('bakery/settings.html')
+    cake_flour_bought_settings = get_settings('cake_flour_bought')
+    bread_flour_bought_settings = get_settings('bread_flour_bought')
+    yeast_bought_settings = get_settings('yeast_bought')
+    oil_bought_settings = get_settings('oil_bought')
+    sugar_bought_settings = get_settings('sugar_bought')
+    
+    return render_template('bakery/settings.html',
+                          cake_flour_bought_settings=cake_flour_bought_settings,
+                          bread_flour_bought_settings=bread_flour_bought_settings,
+                          yeast_bought_settings=yeast_bought_settings,
+                          oil_bought_settings=oil_bought_settings,
+                          sugar_bought_settings=sugar_bought_settings)
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):
@@ -1160,6 +1255,38 @@ def save_sugar_weights():
         conn.close()
         
         return jsonify({'success': True, 'message': 'Weight settings saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/settings/dough-purchases', methods=['POST'])
+def save_dough_purchases_settings():
+    """Save dough purchases CSV product descriptions"""
+    try:
+        data = request.json
+        
+        categories = {
+            'cake_flour_bought': data.get('cake_flour_bought', []),
+            'bread_flour_bought': data.get('bread_flour_bought', []),
+            'yeast_bought': data.get('yeast_bought', []),
+            'oil_bought': data.get('oil_bought', []),
+            'sugar_bought': data.get('sugar_bought', [])
+        }
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Save each category's descriptions
+        for category, descriptions in categories.items():
+            if descriptions:
+                desc_str = '|'.join(descriptions)
+                c.execute("""INSERT OR REPLACE INTO csvSettings (category, descriptions, updated_at)
+                             VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                         (category, desc_str))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Dough purchases settings saved'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 

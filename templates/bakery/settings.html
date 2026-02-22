@@ -23,6 +23,90 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('dough')">+ Add Description</button>
             <button class="btn" style="margin-top: 10px;" onclick="saveSettings('dough')">Save Dough Settings</button>
         </div>
+
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label>Dough Purchases CSV Product Descriptions</label>
+            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Configure product descriptions for each ingredient purchased:</p>
+            
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Cake flour bought</label>
+                    <div id="cake-flour-bought-descriptions" class="descriptions-list">
+                        {% for desc in cake_flour_bought_settings %}
+                            <div class="description-item">
+                                <input type="text" value="{{ desc }}" class="cake-flour-bought-desc" placeholder="e.g., Cake Flour Bags">
+                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                            </div>
+                        {% else %}
+                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-small" onclick="addDescriptionField('cake-flour-bought')">+ Add Description</button>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Bread flour bought</label>
+                    <div id="bread-flour-bought-descriptions" class="descriptions-list">
+                        {% for desc in bread_flour_bought_settings %}
+                            <div class="description-item">
+                                <input type="text" value="{{ desc }}" class="bread-flour-bought-desc" placeholder="e.g., Bread Flour Bags">
+                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                            </div>
+                        {% else %}
+                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-small" onclick="addDescriptionField('bread-flour-bought')">+ Add Description</button>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Yeast bought</label>
+                    <div id="yeast-bought-descriptions" class="descriptions-list">
+                        {% for desc in yeast_bought_settings %}
+                            <div class="description-item">
+                                <input type="text" value="{{ desc }}" class="yeast-bought-desc" placeholder="e.g., Yeast Packets">
+                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                            </div>
+                        {% else %}
+                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-small" onclick="addDescriptionField('yeast-bought')">+ Add Description</button>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Oil bought</label>
+                    <div id="oil-bought-descriptions" class="descriptions-list">
+                        {% for desc in oil_bought_settings %}
+                            <div class="description-item">
+                                <input type="text" value="{{ desc }}" class="oil-bought-desc" placeholder="e.g., Oil Bottles">
+                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                            </div>
+                        {% else %}
+                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-small" onclick="addDescriptionField('oil-bought')">+ Add Description</button>
+                </div>
+
+                <div class="form-group">
+                    <label>Sugar bought</label>
+                    <div id="sugar-bought-descriptions" class="descriptions-list">
+                        {% for desc in sugar_bought_settings %}
+                            <div class="description-item">
+                                <input type="text" value="{{ desc }}" class="sugar-bought-desc" placeholder="e.g., Sugar Bags">
+                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                            </div>
+                        {% else %}
+                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-small" onclick="addDescriptionField('sugar-bought')">+ Add Description</button>
+                </div>
+            </div>
+
+            <button class="btn" style="margin-top: 10px;" onclick="saveDoughPurchasesSettings()">Save Dough Purchases Settings</button>
+        </div>
     </div>
 
     <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
@@ -84,6 +168,21 @@
         } else if (category === 'sweet-chilli') {
             containerId = 'sweet-chilli-descriptions';
             inputClass = 'sweet-chilli-desc';
+        } else if (category === 'cake-flour-bought') {
+            containerId = 'cake-flour-bought-descriptions';
+            inputClass = 'cake-flour-bought-desc';
+        } else if (category === 'bread-flour-bought') {
+            containerId = 'bread-flour-bought-descriptions';
+            inputClass = 'bread-flour-bought-desc';
+        } else if (category === 'yeast-bought') {
+            containerId = 'yeast-bought-descriptions';
+            inputClass = 'yeast-bought-desc';
+        } else if (category === 'oil-bought') {
+            containerId = 'oil-bought-descriptions';
+            inputClass = 'oil-bought-desc';
+        } else if (category === 'sugar-bought') {
+            containerId = 'sugar-bought-descriptions';
+            inputClass = 'sugar-bought-desc';
         }
         
         const container = document.getElementById(containerId);
@@ -141,6 +240,51 @@
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ descriptions: descriptions })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error saving settings', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving settings', 'error');
+        });
+    }
+
+    function saveDoughPurchasesSettings() {
+        const settings = {
+            cake_flour_bought: Array.from(document.querySelectorAll('input.cake-flour-bought-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            bread_flour_bought: Array.from(document.querySelectorAll('input.bread-flour-bought-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            yeast_bought: Array.from(document.querySelectorAll('input.yeast-bought-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            oil_bought: Array.from(document.querySelectorAll('input.oil-bought-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            sugar_bought: Array.from(document.querySelectorAll('input.sugar-bought-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0)
+        };
+
+        if (Object.values(settings).every(arr => arr.length === 0)) {
+            alert('Please add at least one description for each ingredient');
+            return;
+        }
+
+        fetch('/api/settings/dough-purchases', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(settings)
         })
         .then(response => response.json())
         .then(data => {

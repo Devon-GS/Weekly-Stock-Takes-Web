@@ -147,6 +147,44 @@
 <script>
     document.getElementById('date').valueAsDate = new Date();
     
+    // Auto-fill dough purchases from CSV if available on page load
+    async function updateDoughPurchasesFromCSV() {
+        const dateInput = document.getElementById('date').value;
+        
+        if (!dateInput) return;
+        
+        try {
+            const response = await fetch(`/api/bakery/dough-purchases/${dateInput}`);
+            const data = await response.json();
+            
+            console.log("[v0] Dough purchases API response:", data);
+            
+            if (data.success && data.purchases) {
+                const purchases = data.purchases;
+                console.log("[v0] Purchases data:", purchases);
+                
+                // Populate all bought fields
+                document.getElementById('cakeFlourBought').value = (purchases.cakeFlourBought || 0).toFixed(2);
+                document.getElementById('breadFlourBought').value = (purchases.breadFlourBought || 0).toFixed(2);
+                document.getElementById('yeastBought').value = (purchases.yeastBought || 0).toFixed(2);
+                document.getElementById('oilBought').value = (purchases.oilBought || 0).toFixed(2);
+                document.getElementById('sugarBought').value = (purchases.sugarBought || 0).toFixed(2);
+                
+                console.log("[v0] Updated all bought fields");
+            } else {
+                console.log("[v0] No purchases found or API error");
+            }
+        } catch (error) {
+            console.error("[v0] Error fetching dough purchases data:", error);
+        }
+    }
+    
+    // Initial load
+    updateDoughPurchasesFromCSV();
+    
+    // Update when date changes
+    document.getElementById('date').addEventListener('change', updateDoughPurchasesFromCSV);
+    
     document.getElementById('doughForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
