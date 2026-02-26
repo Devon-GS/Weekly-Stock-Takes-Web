@@ -57,20 +57,29 @@
             <th>Eggs On Hand</th>
             <th>Purchases</th>
             <th>Pies Sold</th>
+            <th>Egg Used</th>
+            <th>Egg Wash Per Pie</th>
             <th>Action</th>
         </tr>
     </thead>
     <tbody>
         {% for record in records %}
+            {% if loop.index0 < records|length - 1 %}
+                {% set previous_entry = records[loop.index0 + 1] %}
+                {% set eggs_used = (previous_entry.eggsOnHand + record.purchases) - record.eggsOnHand %}
+                {% set egg_wash_per_pie = eggs_used / record.piesSold if record.piesSold > 0 else 0 %}
         <tr>
             <td>{{ record.date }}</td>
             <td>{{ "%.2f"|format(record.eggsOnHand) }}</td>
             <td>{{ "%.2f"|format(record.purchases) }}</td>
             <td>{{ "%.2f"|format(record.piesSold) }}</td>
+            <td>{{ "%.2f"|format(eggs_used) }}</td>
+            <td>{{ "%.2f"|format(egg_wash_per_pie) }}</td>
             <td>
                 <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/egg-wash/{{ record.id }}', {{ record.id }})">Delete</button>
             </td>
         </tr>
+            {% endif %}
         {% endfor %}
     </tbody>
 </table>
@@ -92,25 +101,38 @@
         
         if (!dateInput) return;
         
-        try {
-            const [piesSoldResponse, purchasesResponse] = await Promise.all([
-                fetch(`/api/bakery/egg-pies-sold/${dateInput}`),
-                fetch(`/api/bakery/egg-purchases/${dateInput}`)
-            ]);
-            
-            const piesSoldData = await piesSoldResponse.json();
-            const purchasesData = await purchasesResponse.json();
-            
-            if (piesSoldData.success) {
-                const piesSoldValue = parseFloat(piesSoldData.pies_sold) || 0;
-                document.getElementById('piesSold').value = piesSoldValue.toFixed(2);
-                if (piesSoldValue > 0) {
-                    document.getElementById('piesSoldValue').textContent = piesSoldValue.toFixed(2);
-                    document.getElementById('piesSoldBadge').style.display = 'inline-block';
-                } else {
-                    document.getElementById('piesSoldBadge').style.display = 'none';
+        // Check if there are existing entries in the history table
+        const historyTable = document.querySelector('table tbody');
+        const hasExistingEntries = historyTable && historyTable.querySelectorAll('tr').length > 0;
+        
+        // Only fetch pies sold data if there are existing entries
+        if (!hasExistingEntries) {
+            document.getElementById('piesSold').value = '0.00';
+            document.getElementById('piesSoldBadge').style.display = 'none';
+        } else {
+            try {
+                const piesSoldResponse = await fetch(`/api/bakery/egg-pies-sold/${dateInput}`);
+                const piesSoldData = await piesSoldResponse.json();
+                
+                if (piesSoldData.success) {
+                    const piesSoldValue = parseFloat(piesSoldData.pies_sold) || 0;
+                    document.getElementById('piesSold').value = piesSoldValue.toFixed(2);
+                    if (piesSoldValue > 0) {
+                        document.getElementById('piesSoldValue').textContent = piesSoldValue.toFixed(2);
+                        document.getElementById('piesSoldBadge').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('piesSoldBadge').style.display = 'none';
+                    }
                 }
+            } catch (error) {
+                console.error("[v0] Error fetching pies sold data:", error);
             }
+        }
+        
+        // Always fetch purchases data
+        try {
+            const purchasesResponse = await fetch(`/api/bakery/egg-purchases/${dateInput}`);
+            const purchasesData = await purchasesResponse.json();
             
             if (purchasesData.success) {
                 const purchasesValue = parseFloat(purchasesData.purchases) || 0;
@@ -123,7 +145,7 @@
                 }
             }
         } catch (error) {
-            console.error("[v0] Error fetching egg wash data:", error);
+            console.error("[v0] Error fetching purchases data:", error);
         }
     }
     

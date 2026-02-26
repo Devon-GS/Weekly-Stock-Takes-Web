@@ -1515,17 +1515,22 @@ def get_egg_pies_sold_for_date(date):
         conn = get_db_connection()
         c = conn.cursor()
         
+        # Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
+        current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
         # Get the latest egg wash entry before this date
-        c.execute("SELECT date FROM bakeryEggWash WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        c.execute("SELECT date FROM bakeryEggWash WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
         previous_record = c.fetchone()
         
         # Determine the start date for the range
         if previous_record:
             last_date = previous_record['date']
+            last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
         else:
-            last_date = "1900-01-01"
+            last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
         
-        print(f"[v0] Pies sold range: {last_date} < date <= {date}")
+        current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+        print(f"[v0] Pies sold range: {last_date_obj} < date <= {current_date_obj}")
         
         total_pies = 0
         
@@ -1537,33 +1542,27 @@ def get_egg_pies_sold_for_date(date):
             # Get egg wash sales settings
             egg_wash_sales = get_settings('egg_wash_sales')
             
-            try:
-                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
-                current_date_obj = parser.parse(date, dayfirst=False).date()
+            # Sum all sales that match product descriptions between dates
+            for row in imported_rows:
+                if not row['description'] or not row['date']:
+                    continue
                 
-                # Sum all sales that match product descriptions between dates
-                for row in imported_rows:
-                    if not row['description'] or not row['date']:
-                        continue
+                try:
+                    row_date = parser.parse(row['date'], dayfirst=True).date()
                     
-                    try:
-                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                    # Check if date is in range
+                    if last_date_obj < row_date <= current_date_obj:
+                        description_lower = row['description'].lower()
+                        quantity = row['quantity']
                         
-                        # Check if date is in range
-                        if last_date_obj < row_date <= current_date_obj:
-                            description_lower = row['description'].lower()
-                            quantity = row['quantity']
-                            
-                            # Check egg wash products
-                            for desc in egg_wash_sales:
-                                if desc and desc.lower() in description_lower:
-                                    total_pies += quantity
-                                    print(f"[v0] Matched pies sold: '{desc}' in '{row['description']}' (+{quantity})")
-                                    break
-                    except Exception as e:
-                        continue
-            except Exception as e:
-                print(f"[v0] Error parsing dates: {e}")
+                        # Check egg wash products
+                        for desc in egg_wash_sales:
+                            if desc and desc.lower() in description_lower:
+                                total_pies += quantity
+                                print(f"[v0] Matched pies sold: '{desc}' in '{row['description']}' (+{quantity})")
+                                break
+                except Exception as e:
+                    continue
         
         conn.close()
         
