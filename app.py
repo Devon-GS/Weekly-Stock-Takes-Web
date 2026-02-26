@@ -103,6 +103,8 @@ def init_db():
         yeastBought REAL DEFAULT 0,
         oilBought REAL DEFAULT 0,
         sugarBought REAL DEFAULT 0,
+        pizzaSales REAL DEFAULT 0,
+        normalSales REAL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
@@ -1018,6 +1020,8 @@ def add_bakery_dough():
     """Add dough entry"""
     try:
         data = request.json
+        print(f"[v0] Received data: {data}")
+        
         date_str = format_date(data.get('date', ''))
         cake_flour = float(data.get('cakeFlour', 0))
         bread_flour = float(data.get('breadFlour', 0))
@@ -1029,20 +1033,27 @@ def add_bakery_dough():
         yeast_bought = float(data.get('yeastBought', 0))
         oil_bought = float(data.get('oilBought', 0))
         sugar_bought = float(data.get('sugarBought', 0))
+        pizza_sales = float(data.get('pizzaSales', 0))
+        normal_sales = float(data.get('normalSales', 0))
+        
+        print(f"[v0] Parsed values - date: {date_str}, pizza_sales: {pizza_sales}, normal_sales: {normal_sales}")
         
         conn = get_db_connection()
         c = conn.cursor()
         
         c.execute("""INSERT INTO bakeryDough
-                    (date, cakeFlour, breadFlour, yeast, oil, sugar, cakeFlourBought, breadFlourBought, yeastBought, oilBought, sugarBought)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                 (date_str, cake_flour, bread_flour, yeast, oil, sugar, cake_flour_bought, bread_flour_bought, yeast_bought, oil_bought, sugar_bought))
+                    (date, cakeFlour, breadFlour, yeast, oil, sugar, cakeFlourBought, breadFlourBought, yeastBought, oilBought, sugarBought, pizzaSales, normalSales)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 (date_str, cake_flour, bread_flour, yeast, oil, sugar, cake_flour_bought, bread_flour_bought, yeast_bought, oil_bought, sugar_bought, pizza_sales, normal_sales))
         
         conn.commit()
         conn.close()
         
         return jsonify({'success': True, 'message': 'Dough entry added successfully'})
     except Exception as e:
+        print(f"[v0] Error in add_bakery_dough: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/bakery/dough/<int:record_id>', methods=['DELETE'])
@@ -1138,6 +1149,100 @@ def get_dough_purchases_for_date(date):
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
+@app.route('/api/bakery/dough-sales/<date>')
+def get_dough_sales_for_date(date):
+    """Get dough sales from CSV between last entry and current date - split by pizza and normal"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get the latest dough entry before this date
+        c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        previous_record = c.fetchone()
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+        else:
+            last_date = "1900-01-01"
+        
+        print(f"[v0] Sales range: {last_date} < date <= {date}")
+        
+        pizza_sales = 0
+        normal_sales = 0
+        
+        # Get imported sales data with dates
+        c.execute("SELECT description, quantity, date FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get pizza and normal dough sales settings
+            pizza_dough_settings = get_settings('pizza_dough_sales')
+            normal_dough_settings = get_settings('normal_dough_sales')
+            
+            try:
+                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                current_date_obj = parser.parse(date, dayfirst=False).date()
+                
+                # Sum all sales that match product descriptions between dates
+                for row in imported_rows:
+                    if not row['description'] or not row['date']:
+                        continue
+                    
+                    try:
+                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                        
+                        # Check if date is in range
+                        if last_date_obj < row_date <= current_date_obj:
+                            description_lower = row['description'].lower()
+                            quantity = row['quantity']
+                            
+                            # Check pizza dough products
+                            for desc in pizza_dough_settings:
+                                if desc and desc.lower() in description_lower:
+                                    pizza_sales += quantity
+                                    print(f"[v0] Matched pizza dough sale: '{desc}' in '{row['description']}' (+{quantity})")
+                                    break
+                            else:
+                                # Check normal dough products
+                                for desc in normal_dough_settings:
+                                    if desc and desc.lower() in description_lower:
+                                        normal_sales += quantity
+                                        print(f"[v0] Matched normal dough sale: '{desc}' in '{row['description']}' (+{quantity})")
+                                        break
+                    except Exception as e:
+                        continue
+            except Exception as e:
+                print(f"[v0] Error parsing dates: {e}")
+        
+        conn.close()
+        
+        print(f"[v0] Sales calculated - Pizza: {pizza_sales}, Normal: {normal_sales}")
+        return jsonify({'success': True, 'pizza_sales': pizza_sales, 'normal_sales': normal_sales})
+    except Exception as e:
+        print(f"[v0] Exception in get_dough_sales_for_date: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/dough-count')
+def get_dough_entry_count():
+    """Get count of existing dough entries"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("SELECT COUNT(*) as count FROM bakeryDough")
+        result = c.fetchone()
+        count = result['count'] if result else 0
+        
+        conn.close()
+        
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        print(f"[v0] Exception in get_dough_entry_count: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
 @app.route('/api/bakery/egg-wash', methods=['POST'])
 def add_bakery_egg_wash():
     """Add egg wash entry"""
@@ -1202,13 +1307,17 @@ def bakery_settings_page():
     yeast_bought_settings = get_settings('yeast_bought')
     oil_bought_settings = get_settings('oil_bought')
     sugar_bought_settings = get_settings('sugar_bought')
+    pizza_dough_sales_settings = get_settings('pizza_dough_sales')
+    normal_dough_sales_settings = get_settings('normal_dough_sales')
     
     return render_template('bakery/settings.html',
                           cake_flour_bought_settings=cake_flour_bought_settings,
                           bread_flour_bought_settings=bread_flour_bought_settings,
                           yeast_bought_settings=yeast_bought_settings,
                           oil_bought_settings=oil_bought_settings,
-                          sugar_bought_settings=sugar_bought_settings)
+                          sugar_bought_settings=sugar_bought_settings,
+                          pizza_dough_sales_settings=pizza_dough_sales_settings,
+                          normal_dough_sales_settings=normal_dough_sales_settings)
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):
@@ -1287,6 +1396,35 @@ def save_dough_purchases_settings():
         conn.close()
         
         return jsonify({'success': True, 'message': 'Dough purchases settings saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/settings/dough-sales', methods=['POST'])
+def save_dough_sales_settings():
+    """Save dough sales CSV product descriptions"""
+    try:
+        data = request.json
+        
+        categories = {
+            'pizza_dough_sales': data.get('pizza_dough_sales', []),
+            'normal_dough_sales': data.get('normal_dough_sales', [])
+        }
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Save each category's descriptions
+        for category, descriptions in categories.items():
+            if descriptions:
+                desc_str = '|'.join(descriptions)
+                c.execute("""INSERT OR REPLACE INTO csvSettings (category, descriptions, updated_at)
+                             VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                         (category, desc_str))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Dough sales settings saved'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 

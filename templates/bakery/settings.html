@@ -107,6 +107,45 @@
 
             <button class="btn" style="margin-top: 10px;" onclick="saveDoughPurchasesSettings()">Save Dough Purchases Settings</button>
         </div>
+
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label>Dough Sales CSV Product Descriptions</label>
+            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Configure product descriptions for dough sales:</p>
+            
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Pizza Dough Sales</label>
+                    <div id="pizza-dough-sales-descriptions" class="descriptions-list">
+                        {% for desc in pizza_dough_sales_settings %}
+                            <div class="description-item">
+                                <input type="text" value="{{ desc }}" class="pizza-dough-sales-desc" placeholder="e.g., Pizza Dough">
+                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                            </div>
+                        {% else %}
+                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-small" onclick="addDescriptionField('pizza-dough-sales')">+ Add Description</button>
+                </div>
+
+                <div class="form-group">
+                    <label>Normal Dough Sales</label>
+                    <div id="normal-dough-sales-descriptions" class="descriptions-list">
+                        {% for desc in normal_dough_sales_settings %}
+                            <div class="description-item">
+                                <input type="text" value="{{ desc }}" class="normal-dough-sales-desc" placeholder="e.g., Normal Dough">
+                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                            </div>
+                        {% else %}
+                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn-small" onclick="addDescriptionField('normal-dough-sales')">+ Add Description</button>
+                </div>
+            </div>
+
+            <button class="btn" style="margin-top: 10px;" onclick="saveDoughSalesSettings()">Save Dough Sales Settings</button>
+        </div>
     </div>
 
     <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
@@ -183,6 +222,12 @@
         } else if (category === 'sugar-bought') {
             containerId = 'sugar-bought-descriptions';
             inputClass = 'sugar-bought-desc';
+        } else if (category === 'pizza-dough-sales') {
+            containerId = 'pizza-dough-sales-descriptions';
+            inputClass = 'pizza-dough-sales-desc';
+        } else if (category === 'normal-dough-sales') {
+            containerId = 'normal-dough-sales-descriptions';
+            inputClass = 'normal-dough-sales-desc';
         }
         
         const container = document.getElementById(containerId);
@@ -280,6 +325,42 @@
         }
 
         fetch('/api/settings/dough-purchases', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error saving settings', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving settings', 'error');
+        });
+    }
+
+    function saveDoughSalesSettings() {
+        const settings = {
+            pizza_dough_sales: Array.from(document.querySelectorAll('input.pizza-dough-sales-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            normal_dough_sales: Array.from(document.querySelectorAll('input.normal-dough-sales-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0)
+        };
+
+        if (Object.values(settings).every(arr => arr.length === 0)) {
+            alert('Please add at least one description for each dough type');
+            return;
+        }
+
+        fetch('/api/settings/dough-sales', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
