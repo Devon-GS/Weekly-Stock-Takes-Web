@@ -21,12 +21,26 @@
 
     <div class="form-row">
         <div class="form-group">
-            <label for="eggWashQuantity">Egg Wash Quantity (L)</label>
-            <input type="number" id="eggWashQuantity" name="eggWashQuantity" step="0.01" min="0" value="0">
+            <label for="eggsOnHand">Eggs On Hand</label>
+            <input type="number" id="eggsOnHand" name="eggsOnHand" step="0.01" min="0" value="0">
         </div>
         <div class="form-group">
-            <label for="eggWashUsed">Egg Wash Used (L)</label>
-            <input type="number" id="eggWashUsed" name="eggWashUsed" step="0.01" min="0" value="0">
+            <label for="purchases">Purchases</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="purchases" name="purchases" step="0.01" min="0" value="0">
+                <span id="purchasesBadge" style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px; display: none;">
+                    From CSV: <span id="purchasesValue">0.00</span>
+                </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="piesSold">Pies Sold</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="piesSold" name="piesSold" step="0.01" min="0" value="0">
+                <span id="piesSoldBadge" style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px; display: none;">
+                    From CSV: <span id="piesSoldValue">0.00</span>
+                </span>
+            </div>
         </div>
     </div>
 
@@ -35,9 +49,36 @@
 
 <h3 style="margin-top: 40px; margin-bottom: 20px; color: #333; font-size: 18px;">Egg Wash History</h3>
 
+{% if records %}
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Eggs On Hand</th>
+            <th>Purchases</th>
+            <th>Pies Sold</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+        <tr>
+            <td>{{ record.date }}</td>
+            <td>{{ "%.2f"|format(record.eggsOnHand) }}</td>
+            <td>{{ "%.2f"|format(record.purchases) }}</td>
+            <td>{{ "%.2f"|format(record.piesSold) }}</td>
+            <td>
+                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/egg-wash/{{ record.id }}', {{ record.id }})">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
 <div style="color: #999; text-align: center; padding: 40px; font-size: 14px;">
     No entries yet
 </div>
+{% endif %}
 
 {% endblock %}
 
@@ -45,13 +86,61 @@
 <script>
     document.getElementById('date').valueAsDate = new Date();
     
+    // Auto-fill from CSV data on page load
+    async function updateEggWashDataFromCSV() {
+        const dateInput = document.getElementById('date').value;
+        
+        if (!dateInput) return;
+        
+        try {
+            const [piesSoldResponse, purchasesResponse] = await Promise.all([
+                fetch(`/api/bakery/egg-pies-sold/${dateInput}`),
+                fetch(`/api/bakery/egg-purchases/${dateInput}`)
+            ]);
+            
+            const piesSoldData = await piesSoldResponse.json();
+            const purchasesData = await purchasesResponse.json();
+            
+            if (piesSoldData.success) {
+                const piesSoldValue = parseFloat(piesSoldData.pies_sold) || 0;
+                document.getElementById('piesSold').value = piesSoldValue.toFixed(2);
+                if (piesSoldValue > 0) {
+                    document.getElementById('piesSoldValue').textContent = piesSoldValue.toFixed(2);
+                    document.getElementById('piesSoldBadge').style.display = 'inline-block';
+                } else {
+                    document.getElementById('piesSoldBadge').style.display = 'none';
+                }
+            }
+            
+            if (purchasesData.success) {
+                const purchasesValue = parseFloat(purchasesData.purchases) || 0;
+                document.getElementById('purchases').value = purchasesValue.toFixed(2);
+                if (purchasesValue > 0) {
+                    document.getElementById('purchasesValue').textContent = purchasesValue.toFixed(2);
+                    document.getElementById('purchasesBadge').style.display = 'inline-block';
+                } else {
+                    document.getElementById('purchasesBadge').style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error("[v0] Error fetching egg wash data:", error);
+        }
+    }
+    
+    // Initial load
+    updateEggWashDataFromCSV();
+    
+    // Update when date changes
+    document.getElementById('date').addEventListener('change', updateEggWashDataFromCSV);
+    
     document.getElementById('eggWashForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const formData = {
             date: document.getElementById('date').value,
-            eggWashQuantity: document.getElementById('eggWashQuantity').value,
-            eggWashUsed: document.getElementById('eggWashUsed').value
+            eggsOnHand: document.getElementById('eggsOnHand').value,
+            purchases: document.getElementById('purchases').value,
+            piesSold: document.getElementById('piesSold').value
         };
 
         try {

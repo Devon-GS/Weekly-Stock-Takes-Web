@@ -108,6 +108,16 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Bakery egg wash table
+    c.execute('''CREATE TABLE IF NOT EXISTS bakeryEggWash (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        eggsOnHand REAL DEFAULT 0,
+        purchases REAL DEFAULT 0,
+        piesSold REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
     conn.commit()
     conn.close()
 
@@ -1002,7 +1012,12 @@ def bakery_dough():
 @app.route('/bakery/egg-wash')
 def bakery_egg_wash():
     """Bakery egg wash tracking page"""
-    return render_template('bakery/egg-wash.html')
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM bakeryEggWash ORDER BY date DESC")
+    records = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return render_template('bakery/egg-wash.html', records=records)
 
 @app.route('/bakery/mayo')
 def bakery_mayo():
@@ -1248,7 +1263,39 @@ def add_bakery_egg_wash():
     """Add egg wash entry"""
     try:
         data = request.json
+        date_str = format_date(data.get('date', ''))
+        eggs_on_hand = float(data.get('eggsOnHand', 0))
+        purchases = float(data.get('purchases', 0))
+        pies_sold = float(data.get('piesSold', 0))
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("""INSERT INTO bakeryEggWash
+                    (date, eggsOnHand, purchases, piesSold)
+                    VALUES (?, ?, ?, ?)""",
+                 (date_str, eggs_on_hand, purchases, pies_sold))
+        
+        conn.commit()
+        conn.close()
+        
         return jsonify({'success': True, 'message': 'Egg wash entry added successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/egg-wash/<int:record_id>', methods=['DELETE'])
+def delete_bakery_egg_wash(record_id):
+    """Delete egg wash entry"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("DELETE FROM bakeryEggWash WHERE id = ?", (record_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Egg wash entry deleted successfully'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -1309,6 +1356,8 @@ def bakery_settings_page():
     sugar_bought_settings = get_settings('sugar_bought')
     pizza_dough_sales_settings = get_settings('pizza_dough_sales')
     normal_dough_sales_settings = get_settings('normal_dough_sales')
+    egg_wash_sales_settings = get_settings('egg_wash_sales')
+    egg_purchased_settings = get_settings('egg_purchased')
     
     return render_template('bakery/settings.html',
                           cake_flour_bought_settings=cake_flour_bought_settings,
@@ -1317,7 +1366,9 @@ def bakery_settings_page():
                           oil_bought_settings=oil_bought_settings,
                           sugar_bought_settings=sugar_bought_settings,
                           pizza_dough_sales_settings=pizza_dough_sales_settings,
-                          normal_dough_sales_settings=normal_dough_sales_settings)
+                          normal_dough_sales_settings=normal_dough_sales_settings,
+                          egg_wash_sales_settings=egg_wash_sales_settings,
+                          egg_purchased_settings=egg_purchased_settings)
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):
@@ -1426,6 +1477,146 @@ def save_dough_sales_settings():
         
         return jsonify({'success': True, 'message': 'Dough sales settings saved'})
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/settings/egg-wash', methods=['POST'])
+def save_egg_wash_settings():
+    """Save egg wash CSV product descriptions"""
+    try:
+        data = request.json
+        
+        categories = {
+            'egg_wash_sales': data.get('egg_wash_sales', []),
+            'egg_purchased': data.get('egg_purchased', [])
+        }
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Save each category's descriptions
+        for category, descriptions in categories.items():
+            if descriptions:
+                desc_str = '|'.join(descriptions)
+                c.execute("""INSERT OR REPLACE INTO csvSettings (category, descriptions, updated_at)
+                             VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                         (category, desc_str))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Egg wash settings saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/egg-pies-sold/<date>')
+def get_egg_pies_sold_for_date(date):
+    """Get pies sold from CSV between last entry and current date"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get the latest egg wash entry before this date
+        c.execute("SELECT date FROM bakeryEggWash WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        previous_record = c.fetchone()
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+        else:
+            last_date = "1900-01-01"
+        
+        print(f"[v0] Pies sold range: {last_date} < date <= {date}")
+        
+        total_pies = 0
+        
+        # Get imported sales data with dates
+        c.execute("SELECT description, quantity, date FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get egg wash sales settings
+            egg_wash_sales = get_settings('egg_wash_sales')
+            
+            try:
+                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+                current_date_obj = parser.parse(date, dayfirst=False).date()
+                
+                # Sum all sales that match product descriptions between dates
+                for row in imported_rows:
+                    if not row['description'] or not row['date']:
+                        continue
+                    
+                    try:
+                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                        
+                        # Check if date is in range
+                        if last_date_obj < row_date <= current_date_obj:
+                            description_lower = row['description'].lower()
+                            quantity = row['quantity']
+                            
+                            # Check egg wash products
+                            for desc in egg_wash_sales:
+                                if desc and desc.lower() in description_lower:
+                                    total_pies += quantity
+                                    print(f"[v0] Matched pies sold: '{desc}' in '{row['description']}' (+{quantity})")
+                                    break
+                    except Exception as e:
+                        continue
+            except Exception as e:
+                print(f"[v0] Error parsing dates: {e}")
+        
+        conn.close()
+        
+        print(f"[v0] Total pies sold calculated: {total_pies}")
+        return jsonify({'success': True, 'pies_sold': total_pies})
+    except Exception as e:
+        print(f"[v0] Exception in get_egg_pies_sold_for_date: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/egg-purchases/<date>')
+def get_egg_purchases_for_date(date):
+    """Get egg purchases from CSV - sum all matching products"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        print(f"[v0] Calculating total egg purchases (no date filter)")
+        
+        total_purchases = 0
+        
+        # Get imported purchase data
+        c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get egg purchased settings
+            egg_purchased = get_settings('egg_purchased')
+            
+            # Sum all purchases that match product descriptions
+            for row in imported_rows:
+                if not row['description']:
+                    continue
+                
+                description_lower = row['description'].lower()
+                quantity = row['quantity']
+                
+                # Check egg purchased products
+                for desc in egg_purchased:
+                    if desc and desc.lower() in description_lower:
+                        total_purchases += quantity
+                        print(f"[v0] Matched egg purchase: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+        
+        conn.close()
+        
+        print(f"[v0] Total egg purchases calculated: {total_purchases}")
+        return jsonify({'success': True, 'purchases': total_purchases})
+    except Exception as e:
+        print(f"[v0] Exception in get_egg_purchases_for_date: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/import')

@@ -151,14 +151,39 @@
     <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
         <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Egg Wash Settings</label>
         
-        <div class="form-group">
+        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
             <label>Egg Wash CSV Product Descriptions</label>
-            <div id="egg-wash-descriptions" class="descriptions-list">
-                <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for egg wash sales:</p>
+            <div id="egg-wash-sales-descriptions" class="descriptions-list">
+                {% for desc in egg_wash_sales_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="egg-wash-sales-desc" placeholder="e.g., Pies">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
             </div>
-            <button type="button" class="btn-small" onclick="addDescriptionField('egg-wash')">+ Add Description</button>
-            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('egg_wash')">Save Egg Wash Settings</button>
+            <button type="button" class="btn-small" onclick="addDescriptionField('egg-wash-sales')">+ Add Description</button>
         </div>
+
+        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+            <label>Egg Purchased Product Descriptions</label>
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for egg purchases:</p>
+            <div id="egg-purchased-descriptions" class="descriptions-list">
+                {% for desc in egg_purchased_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="egg-purchased-desc" placeholder="e.g., Eggs">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('egg-purchased')">+ Add Description</button>
+        </div>
+
+        <button class="btn" style="margin-top: 10px;" onclick="saveEggWashSettings()">Save Egg Wash Settings</button>
     </div>
 
     <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
@@ -228,6 +253,12 @@
         } else if (category === 'normal-dough-sales') {
             containerId = 'normal-dough-sales-descriptions';
             inputClass = 'normal-dough-sales-desc';
+        } else if (category === 'egg-wash-sales') {
+            containerId = 'egg-wash-sales-descriptions';
+            inputClass = 'egg-wash-sales-desc';
+        } else if (category === 'egg-purchased') {
+            containerId = 'egg-purchased-descriptions';
+            inputClass = 'egg-purchased-desc';
         }
         
         const container = document.getElementById(containerId);
@@ -361,6 +392,42 @@
         }
 
         fetch('/api/settings/dough-sales', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error saving settings', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving settings', 'error');
+        });
+    }
+
+    function saveEggWashSettings() {
+        const settings = {
+            egg_wash_sales: Array.from(document.querySelectorAll('input.egg-wash-sales-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            egg_purchased: Array.from(document.querySelectorAll('input.egg-purchased-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0)
+        };
+
+        if (Object.values(settings).every(arr => arr.length === 0)) {
+            alert('Please add at least one description for each category');
+            return;
+        }
+
+        fetch('/api/settings/egg-wash', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
