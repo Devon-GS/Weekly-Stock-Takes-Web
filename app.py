@@ -1065,9 +1065,17 @@ def add_bakery_dough():
     """Add dough entry"""
     try:
         data = request.json
-        print(f"[v0] Received data: {data}")
-        
         date_str = format_date(data.get('date', ''))
+        pizza_sales = float(data.get('pizzaSales', 0))
+        normal_sales = float(data.get('normalSales', 0))
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Get the previous entry's flour amounts (for calculating usage)
+        c.execute("SELECT cakeFlour, breadFlour, yeast, oil, sugar FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (date_str,))
+        previous_entry = c.fetchone()
+        
         cake_flour = float(data.get('cakeFlour', 0))
         bread_flour = float(data.get('breadFlour', 0))
         yeast = float(data.get('yeast', 0))
@@ -1078,25 +1086,21 @@ def add_bakery_dough():
         yeast_bought = float(data.get('yeastBought', 0))
         oil_bought = float(data.get('oilBought', 0))
         sugar_bought = float(data.get('sugarBought', 0))
-        pizza_sales = float(data.get('pizzaSales', 0))
-        normal_sales = float(data.get('normalSales', 0))
-        
-        print(f"[v0] Parsed values - date: {date_str}, pizza_sales: {pizza_sales}, normal_sales: {normal_sales}")
-        
-        conn = get_db_connection()
-        c = conn.cursor()
         
         c.execute("""INSERT INTO bakeryDough
-                    (date, cakeFlour, breadFlour, yeast, oil, sugar, cakeFlourBought, breadFlourBought, yeastBought, oilBought, sugarBought, pizzaSales, normalSales)
+                    (date, cakeFlour, breadFlour, yeast, oil, sugar,
+                     cakeFlourBought, breadFlourBought, yeastBought, oilBought, sugarBought,
+                     pizzaSales, normalSales)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                 (date_str, cake_flour, bread_flour, yeast, oil, sugar, cake_flour_bought, bread_flour_bought, yeast_bought, oil_bought, sugar_bought, pizza_sales, normal_sales))
+                 (date_str, cake_flour, bread_flour, yeast, oil, sugar,
+                  cake_flour_bought, bread_flour_bought, yeast_bought, oil_bought, sugar_bought,
+                  pizza_sales, normal_sales))
         
         conn.commit()
         conn.close()
         
         return jsonify({'success': True, 'message': 'Dough entry added successfully'})
     except Exception as e:
-        print(f"[v0] Error in add_bakery_dough: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1112,34 +1116,40 @@ def delete_bakery_dough(record_id):
 
 @app.route('/api/bakery/dough-purchases/<date>')
 def get_dough_purchases_for_date(date):
-    """Get dough ingredient purchases from CSV - sum all matching products"""
+    """Get dough ingredients purchased from CSV for a specific date range"""
     try:
         conn = get_db_connection()
         c = conn.cursor()
         
-        purchases = {
-            'cakeFlourBought': 0,
-            'breadFlourBought': 0,
-            'yeastBought': 0,
-            'oilBought': 0,
-            'sugarBought': 0
-        }
+        # Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
+        current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
+        # Get the latest dough entry before this date
+        c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
+        previous_record = c.fetchone()
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+            last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+        else:
+            last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+        
+        current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+        
+        purchases = {'cakeFlourBought': 0, 'breadFlourBought': 0, 'yeastBought': 0, 'oilBought': 0, 'sugarBought': 0}
         
         # Get imported purchase data
         c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
         imported_rows = [dict(row) for row in c.fetchall()]
         
-        print(f"[v0] Found {len(imported_rows)} imported rows")
-        
         if imported_rows:
-            # Get dough purchase settings
+            # Get settings for each ingredient
             cake_flour_settings = get_settings('cake_flour_bought')
             bread_flour_settings = get_settings('bread_flour_bought')
             yeast_settings = get_settings('yeast_bought')
             oil_settings = get_settings('oil_bought')
             sugar_settings = get_settings('sugar_bought')
-            
-            print(f"[v0] Settings - Cake flour: {cake_flour_settings}, Bread flour: {bread_flour_settings}, Yeast: {yeast_settings}, Oil: {oil_settings}, Sugar: {sugar_settings}")
             
             # Sum all purchases that match product descriptions
             for row in imported_rows:
@@ -1153,65 +1163,58 @@ def get_dough_purchases_for_date(date):
                 for desc in cake_flour_settings:
                     if desc and desc.lower() in description_lower:
                         purchases['cakeFlourBought'] += quantity
-                        print(f"[v0] Matched cake flour: '{desc}' in '{row['description']}' (+{quantity})")
                         break
-                
                 # Check bread flour
                 for desc in bread_flour_settings:
                     if desc and desc.lower() in description_lower:
                         purchases['breadFlourBought'] += quantity
-                        print(f"[v0] Matched bread flour: '{desc}' in '{row['description']}' (+{quantity})")
                         break
-                
                 # Check yeast
                 for desc in yeast_settings:
                     if desc and desc.lower() in description_lower:
                         purchases['yeastBought'] += quantity
-                        print(f"[v0] Matched yeast: '{desc}' in '{row['description']}' (+{quantity})")
                         break
-                
                 # Check oil
                 for desc in oil_settings:
                     if desc and desc.lower() in description_lower:
                         purchases['oilBought'] += quantity
-                        print(f"[v0] Matched oil: '{desc}' in '{row['description']}' (+{quantity})")
                         break
-                
                 # Check sugar
                 for desc in sugar_settings:
                     if desc and desc.lower() in description_lower:
                         purchases['sugarBought'] += quantity
-                        print(f"[v0] Matched sugar: '{desc}' in '{row['description']}' (+{quantity})")
                         break
         
         conn.close()
         
-        print(f"[v0] Final purchases result: {purchases}")
         return jsonify({'success': True, 'purchases': purchases})
     except Exception as e:
-        print(f"[v0] Exception in get_dough_purchases_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/bakery/dough-sales/<date>')
 def get_dough_sales_for_date(date):
-    """Get dough sales from CSV between last entry and current date - split by pizza and normal"""
+    """Get dough sales from CSV between last entry and current date"""
     try:
         conn = get_db_connection()
         c = conn.cursor()
         
+        # Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
+        current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
         # Get the latest dough entry before this date
-        c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+        c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
         previous_record = c.fetchone()
         
         # Determine the start date for the range
         if previous_record:
             last_date = previous_record['date']
+            last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
         else:
-            last_date = "1900-01-01"
+            last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
         
-        print(f"[v0] Sales range: {last_date} < date <= {date}")
+        current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
         
         pizza_sales = 0
         normal_sales = 0
@@ -1221,51 +1224,40 @@ def get_dough_sales_for_date(date):
         imported_rows = [dict(row) for row in c.fetchall()]
         
         if imported_rows:
-            # Get pizza and normal dough sales settings
-            pizza_dough_settings = get_settings('pizza_dough_sales')
-            normal_dough_settings = get_settings('normal_dough_sales')
+            # Get dough sales settings
+            pizza_dough_sales = get_settings('pizza_dough_sales')
+            normal_dough_sales = get_settings('normal_dough_sales')
             
-            try:
-                last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
-                current_date_obj = parser.parse(date, dayfirst=False).date()
+            # Sum all sales that match product descriptions between dates
+            for row in imported_rows:
+                if not row['description'] or not row['date']:
+                    continue
                 
-                # Sum all sales that match product descriptions between dates
-                for row in imported_rows:
-                    if not row['description'] or not row['date']:
-                        continue
+                try:
+                    row_date = parser.parse(row['date'], dayfirst=True).date()
                     
-                    try:
-                        row_date = parser.parse(row['date'], dayfirst=True).date()
+                    # Check if date is in range
+                    if last_date_obj < row_date <= current_date_obj:
+                        description_lower = row['description'].lower()
+                        quantity = row['quantity']
                         
-                        # Check if date is in range
-                        if last_date_obj < row_date <= current_date_obj:
-                            description_lower = row['description'].lower()
-                            quantity = row['quantity']
-                            
-                            # Check pizza dough products
-                            for desc in pizza_dough_settings:
-                                if desc and desc.lower() in description_lower:
-                                    pizza_sales += quantity
-                                    print(f"[v0] Matched pizza dough sale: '{desc}' in '{row['description']}' (+{quantity})")
-                                    break
-                            else:
-                                # Check normal dough products
-                                for desc in normal_dough_settings:
-                                    if desc and desc.lower() in description_lower:
-                                        normal_sales += quantity
-                                        print(f"[v0] Matched normal dough sale: '{desc}' in '{row['description']}' (+{quantity})")
-                                        break
-                    except Exception as e:
-                        continue
-            except Exception as e:
-                print(f"[v0] Error parsing dates: {e}")
+                        # Check pizza dough
+                        for desc in pizza_dough_sales:
+                            if desc and desc.lower() in description_lower:
+                                pizza_sales += quantity
+                                break
+                        # Check normal dough
+                        for desc in normal_dough_sales:
+                            if desc and desc.lower() in description_lower:
+                                normal_sales += quantity
+                                break
+                except Exception as e:
+                    continue
         
         conn.close()
         
-        print(f"[v0] Sales calculated - Pizza: {pizza_sales}, Normal: {normal_sales}")
-        return jsonify({'success': True, 'pizza_sales': pizza_sales, 'normal_sales': normal_sales})
+        return jsonify({'success': True, 'pizzaSales': pizza_sales, 'normalSales': normal_sales})
     except Exception as e:
-        print(f"[v0] Exception in get_dough_sales_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1285,7 +1277,8 @@ def get_dough_entry_count():
         
         return jsonify({'success': True, 'count': count})
     except Exception as e:
-        print(f"[v0] Exception in get_dough_entry_count: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/bakery/egg-wash', methods=['POST'])
@@ -1339,8 +1332,6 @@ def add_bakery_mayo():
         purchases = float(data.get('purchases', 0))
         pies_sold = float(data.get('piesSold', 0))
         
-        print(f"[v0] Adding mayo entry: date={date_str}, mayo_on_hand={mayo_on_hand}, purchases={purchases}, pies_sold={pies_sold}")
-        
         conn = get_db_connection()
         c = conn.cursor()
         
@@ -1354,13 +1345,11 @@ def add_bakery_mayo():
         # Verify the insert
         c.execute("SELECT COUNT(*) as count FROM bakeryMayo")
         result = c.fetchone()
-        print(f"[v0] Total mayo records in database: {result['count']}")
         
         conn.close()
         
         return jsonify({'success': True, 'message': 'Mayo entry added successfully'})
     except Exception as e:
-        print(f"[v0] Error adding mayo entry: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1391,8 +1380,6 @@ def add_bakery_sweet_chilli():
         purchases = float(data.get('purchases', 0))
         pies_sold = float(data.get('piesSold', 0))
         
-        print(f"[v0] Adding sweet chilli entry: date={date_str}, sweet_chilli_on_hand={sweet_chilli_on_hand}, purchases={purchases}, pies_sold={pies_sold}")
-        
         conn = get_db_connection()
         c = conn.cursor()
         
@@ -1406,13 +1393,11 @@ def add_bakery_sweet_chilli():
         # Verify the insert
         c.execute("SELECT COUNT(*) as count FROM bakerySweetChilli")
         result = c.fetchone()
-        print(f"[v0] Total sweet chilli records in database: {result['count']}")
         
         conn.close()
         
         return jsonify({'success': True, 'message': 'Sweet chilli entry added successfully'})
     except Exception as e:
-        print(f"[v0] Error adding sweet chilli entry: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1712,7 +1697,6 @@ def get_egg_pies_sold_for_date(date):
             last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
         
         current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
-        print(f"[v0] Pies sold range: {last_date_obj} < date <= {current_date_obj}")
         
         total_pies = 0
         
@@ -1741,17 +1725,14 @@ def get_egg_pies_sold_for_date(date):
                         for desc in egg_wash_sales:
                             if desc and desc.lower() in description_lower:
                                 total_pies += quantity
-                                print(f"[v0] Matched pies sold: '{desc}' in '{row['description']}' (+{quantity})")
                                 break
                 except Exception as e:
                     continue
         
         conn.close()
         
-        print(f"[v0] Total pies sold calculated: {total_pies}")
         return jsonify({'success': True, 'pies_sold': total_pies})
     except Exception as e:
-        print(f"[v0] Exception in get_egg_pies_sold_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1762,8 +1743,6 @@ def get_egg_purchases_for_date(date):
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        
-        print(f"[v0] Calculating total egg purchases (no date filter)")
         
         total_purchases = 0
         
@@ -1787,15 +1766,12 @@ def get_egg_purchases_for_date(date):
                 for desc in egg_purchased:
                     if desc and desc.lower() in description_lower:
                         total_purchases += quantity
-                        print(f"[v0] Matched egg purchase: '{desc}' in '{row['description']}' (+{quantity})")
                         break
         
         conn.close()
         
-        print(f"[v0] Total egg purchases calculated: {total_purchases}")
         return jsonify({'success': True, 'purchases': total_purchases})
     except Exception as e:
-        print(f"[v0] Exception in get_egg_purchases_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1822,7 +1798,6 @@ def get_mayo_pies_sold_for_date(date):
             last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
         
         current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
-        print(f"[v0] Mayo pies sold range: {last_date_obj} < date <= {current_date_obj}")
         
         total_pies = 0
         
@@ -1851,17 +1826,14 @@ def get_mayo_pies_sold_for_date(date):
                         for desc in mayo_sales:
                             if desc and desc.lower() in description_lower:
                                 total_pies += quantity
-                                print(f"[v0] Matched mayo pies sold: '{desc}' in '{row['description']}' (+{quantity})")
                                 break
                 except Exception as e:
                     continue
         
         conn.close()
         
-        print(f"[v0] Total mayo pies sold calculated: {total_pies}")
         return jsonify({'success': True, 'pies_sold': total_pies})
     except Exception as e:
-        print(f"[v0] Exception in get_mayo_pies_sold_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1872,8 +1844,6 @@ def get_mayo_purchases_for_date(date):
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        
-        print(f"[v0] Calculating total mayo purchases (no date filter)")
         
         total_purchases = 0
         
@@ -1897,15 +1867,12 @@ def get_mayo_purchases_for_date(date):
                 for desc in mayo_purchased:
                     if desc and desc.lower() in description_lower:
                         total_purchases += quantity
-                        print(f"[v0] Matched mayo purchase: '{desc}' in '{row['description']}' (+{quantity})")
                         break
         
         conn.close()
         
-        print(f"[v0] Total mayo purchases calculated: {total_purchases}")
         return jsonify({'success': True, 'purchases': total_purchases})
     except Exception as e:
-        print(f"[v0] Exception in get_mayo_purchases_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1932,7 +1899,6 @@ def get_sweet_chilli_pies_sold_for_date(date):
             last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
         
         current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
-        print(f"[v0] Sweet chilli pies sold range: {last_date_obj} < date <= {current_date_obj}")
         
         total_pies = 0
         
@@ -1943,7 +1909,6 @@ def get_sweet_chilli_pies_sold_for_date(date):
         if imported_rows:
             # Get sweet chilli sales settings
             sweet_chilli_sales = get_settings('sweet_chilli_sales')
-            print(f"[v0] Sweet chilli sales settings: {sweet_chilli_sales}")
             
             # Sum all sales that match product descriptions between dates
             for row in imported_rows:
@@ -1962,17 +1927,14 @@ def get_sweet_chilli_pies_sold_for_date(date):
                         for desc in sweet_chilli_sales:
                             if desc and desc.lower() in description_lower:
                                 total_pies += quantity
-                                print(f"[v0] Matched sweet chilli pies sold: '{desc}' in '{row['description']}' (+{quantity})")
                                 break
                 except Exception as e:
                     continue
         
         conn.close()
         
-        print(f"[v0] Total sweet chilli pies sold calculated: {total_pies}")
         return jsonify({'success': True, 'pies_sold': total_pies})
     except Exception as e:
-        print(f"[v0] Exception in get_sweet_chilli_pies_sold_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -1983,8 +1945,6 @@ def get_sweet_chilli_purchases_for_date(date):
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        
-        print(f"[v0] Calculating total sweet chilli purchases (no date filter)")
         
         total_purchases = 0
         
@@ -2008,15 +1968,12 @@ def get_sweet_chilli_purchases_for_date(date):
                 for desc in sweet_chilli_purchased:
                     if desc and desc.lower() in description_lower:
                         total_purchases += quantity
-                        print(f"[v0] Matched sweet chilli purchase: '{desc}' in '{row['description']}' (+{quantity})")
                         break
         
         conn.close()
         
-        print(f"[v0] Total sweet chilli purchases calculated: {total_purchases}")
         return jsonify({'success': True, 'purchases': total_purchases})
     except Exception as e:
-        print(f"[v0] Exception in get_sweet_chilli_purchases_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
