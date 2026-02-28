@@ -128,6 +128,16 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Bakery sweet chilli table
+    c.execute('''CREATE TABLE IF NOT EXISTS bakerySweetChilli (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        sweetChilliOnHand REAL DEFAULT 0,
+        purchases REAL DEFAULT 0,
+        piesSold REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
     conn.commit()
     conn.close()
 
@@ -1041,8 +1051,13 @@ def bakery_mayo():
 
 @app.route('/bakery/sweet-chilli')
 def bakery_sweet_chilli():
-    """Bakery sweet chilli usage tracking page"""
-    return render_template('bakery/sweet-chilli.html')
+    """Bakery sweet chilli tracking page"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM bakerySweetChilli ORDER BY date DESC")
+    records = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return render_template('bakery/sweet-chilli.html', records=records)
 
 # Bakery API Endpoints
 @app.route('/api/bakery/dough', methods=['POST'])
@@ -1368,10 +1383,53 @@ def delete_bakery_mayo(record_id):
 
 @app.route('/api/bakery/sweet-chilli', methods=['POST'])
 def add_bakery_sweet_chilli():
-    """Add sweet chilli usage entry"""
+    """Add sweet chilli entry"""
     try:
         data = request.json
+        date_str = format_date(data.get('date', ''))
+        sweet_chilli_on_hand = float(data.get('sweetChilliOnHand', 0))
+        purchases = float(data.get('purchases', 0))
+        pies_sold = float(data.get('piesSold', 0))
+        
+        print(f"[v0] Adding sweet chilli entry: date={date_str}, sweet_chilli_on_hand={sweet_chilli_on_hand}, purchases={purchases}, pies_sold={pies_sold}")
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("""INSERT INTO bakerySweetChilli
+                    (date, sweetChilliOnHand, purchases, piesSold)
+                    VALUES (?, ?, ?, ?)""",
+                 (date_str, sweet_chilli_on_hand, purchases, pies_sold))
+        
+        conn.commit()
+        
+        # Verify the insert
+        c.execute("SELECT COUNT(*) as count FROM bakerySweetChilli")
+        result = c.fetchone()
+        print(f"[v0] Total sweet chilli records in database: {result['count']}")
+        
+        conn.close()
+        
         return jsonify({'success': True, 'message': 'Sweet chilli entry added successfully'})
+    except Exception as e:
+        print(f"[v0] Error adding sweet chilli entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/sweet-chilli/<int:record_id>', methods=['DELETE'])
+def delete_bakery_sweet_chilli(record_id):
+    """Delete sweet chilli entry"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("DELETE FROM bakerySweetChilli WHERE id = ?", (record_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Sweet chilli entry deleted successfully'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -1418,6 +1476,8 @@ def bakery_settings_page():
     egg_purchased_settings = get_settings('egg_purchased')
     mayo_sales_settings = get_settings('mayo_sales')
     mayo_purchased_settings = get_settings('mayo_purchased')
+    sweet_chilli_sales_settings = get_settings('sweet_chilli_sales')
+    sweet_chilli_purchased_settings = get_settings('sweet_chilli_purchased')
     
     return render_template('bakery/settings.html',
                           cake_flour_bought_settings=cake_flour_bought_settings,
@@ -1430,7 +1490,9 @@ def bakery_settings_page():
                           egg_wash_sales_settings=egg_wash_sales_settings,
                           egg_purchased_settings=egg_purchased_settings,
                           mayo_sales_settings=mayo_sales_settings,
-                          mayo_purchased_settings=mayo_purchased_settings)
+                          mayo_purchased_settings=mayo_purchased_settings,
+                          sweet_chilli_sales_settings=sweet_chilli_sales_settings,
+                          sweet_chilli_purchased_settings=sweet_chilli_purchased_settings)
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):
@@ -1596,6 +1658,35 @@ def save_mayo_settings():
         conn.close()
         
         return jsonify({'success': True, 'message': 'Mayo settings saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/settings/sweet-chilli', methods=['POST'])
+def save_sweet_chilli_settings():
+    """Save sweet chilli CSV product descriptions"""
+    try:
+        data = request.json
+        
+        categories = {
+            'sweet_chilli_sales': data.get('sweet_chilli_sales', []),
+            'sweet_chilli_purchased': data.get('sweet_chilli_purchased', [])
+        }
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Save each category's descriptions
+        for category, descriptions in categories.items():
+            if descriptions:
+                desc_str = '|'.join(descriptions)
+                c.execute("""INSERT OR REPLACE INTO csvSettings (category, descriptions, updated_at)
+                             VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                         (category, desc_str))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Sweet chilli settings saved'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -1815,6 +1906,117 @@ def get_mayo_purchases_for_date(date):
         return jsonify({'success': True, 'purchases': total_purchases})
     except Exception as e:
         print(f"[v0] Exception in get_mayo_purchases_for_date: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/sweet-chilli-pies-sold/<date>')
+def get_sweet_chilli_pies_sold_for_date(date):
+    """Get pies sold from CSV between last entry and current date"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
+        current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
+        # Get the latest sweet chilli entry before this date
+        c.execute("SELECT date FROM bakerySweetChilli WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
+        previous_record = c.fetchone()
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+            last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+        else:
+            last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+        
+        current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+        print(f"[v0] Sweet chilli pies sold range: {last_date_obj} < date <= {current_date_obj}")
+        
+        total_pies = 0
+        
+        # Get imported sales data with dates
+        c.execute("SELECT description, quantity, date FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get sweet chilli sales settings
+            sweet_chilli_sales = get_settings('sweet_chilli_sales')
+            print(f"[v0] Sweet chilli sales settings: {sweet_chilli_sales}")
+            
+            # Sum all sales that match product descriptions between dates
+            for row in imported_rows:
+                if not row['description'] or not row['date']:
+                    continue
+                
+                try:
+                    row_date = parser.parse(row['date'], dayfirst=True).date()
+                    
+                    # Check if date is in range
+                    if last_date_obj < row_date <= current_date_obj:
+                        description_lower = row['description'].lower()
+                        quantity = row['quantity']
+                        
+                        # Check sweet chilli products
+                        for desc in sweet_chilli_sales:
+                            if desc and desc.lower() in description_lower:
+                                total_pies += quantity
+                                print(f"[v0] Matched sweet chilli pies sold: '{desc}' in '{row['description']}' (+{quantity})")
+                                break
+                except Exception as e:
+                    continue
+        
+        conn.close()
+        
+        print(f"[v0] Total sweet chilli pies sold calculated: {total_pies}")
+        return jsonify({'success': True, 'pies_sold': total_pies})
+    except Exception as e:
+        print(f"[v0] Exception in get_sweet_chilli_pies_sold_for_date: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/sweet-chilli-purchases/<date>')
+def get_sweet_chilli_purchases_for_date(date):
+    """Get sweet chilli purchases from CSV - sum all matching products"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        print(f"[v0] Calculating total sweet chilli purchases (no date filter)")
+        
+        total_purchases = 0
+        
+        # Get imported purchase data
+        c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get sweet chilli purchased settings
+            sweet_chilli_purchased = get_settings('sweet_chilli_purchased')
+            
+            # Sum all purchases that match product descriptions
+            for row in imported_rows:
+                if not row['description']:
+                    continue
+                
+                description_lower = row['description'].lower()
+                quantity = row['quantity']
+                
+                # Check sweet chilli purchased products
+                for desc in sweet_chilli_purchased:
+                    if desc and desc.lower() in description_lower:
+                        total_purchases += quantity
+                        print(f"[v0] Matched sweet chilli purchase: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+        
+        conn.close()
+        
+        print(f"[v0] Total sweet chilli purchases calculated: {total_purchases}")
+        return jsonify({'success': True, 'purchases': total_purchases})
+    except Exception as e:
+        print(f"[v0] Exception in get_sweet_chilli_purchases_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400

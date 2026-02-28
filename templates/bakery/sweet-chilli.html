@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Sweet Chilli Usage - Bakery Tracking{% endblock %}
+{% block title %}Sweet Chilli - Bakery Tracking{% endblock %}
 
 {% block content %}
-<h2 style="margin-bottom: 20px; color: #333; font-size: 24px;">Sweet Chilli Usage Tracking</h2>
+<h2 style="margin-bottom: 20px; color: #333; font-size: 24px;">Sweet Chilli Tracking</h2>
 
 <div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
     <p style="color: #333; font-size: 14px;">
-        <strong>Track sweet chilli usage:</strong> Record sweet chilli consumption and inventory data.
+        <strong>Track sweet chilli:</strong> Record sweet chilli preparation, usage, and inventory data.
     </p>
 </div>
 
@@ -21,23 +21,73 @@
 
     <div class="form-row">
         <div class="form-group">
-            <label for="sweetChilliQuantity">Sweet Chilli On Hand (ml)</label>
-            <input type="number" id="sweetChilliQuantity" name="sweetChilliQuantity" step="1" min="0" value="0">
+            <label for="sweetChilliOnHand">Sweet Chilli On Hand</label>
+            <input type="number" id="sweetChilliOnHand" name="sweetChilliOnHand" step="0.01" min="0" value="0">
         </div>
         <div class="form-group">
-            <label for="sweetChilliUsed">Sweet Chilli Used (ml)</label>
-            <input type="number" id="sweetChilliUsed" name="sweetChilliUsed" step="1" min="0" value="0">
+            <label for="purchases">Purchases</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="purchases" name="purchases" step="0.01" min="0" value="0">
+                <span id="purchasesBadge" style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px; display: none;">
+                    From CSV: <span id="purchasesValue">0.00</span>
+                </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="itemsSold">Items Sold</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="itemsSold" name="itemsSold" step="0.01" min="0" value="0">
+                <span id="itemsSoldBadge" style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; font-size: 14px; display: none;">
+                    From CSV: <span id="itemsSoldValue">0.00</span>
+                </span>
+            </div>
         </div>
     </div>
 
     <button type="submit" class="btn">Save Entry</button>
 </form>
 
-<h3 style="margin-top: 40px; margin-bottom: 20px; color: #333; font-size: 18px;">Sweet Chilli Usage History</h3>
+<h3 style="margin-top: 40px; margin-bottom: 20px; color: #333; font-size: 18px;">Sweet Chilli History</h3>
 
+{% if records %}
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Sweet Chilli On Hand</th>
+            <th>Purchases</th>
+            <th>Items Sold</th>
+            <th>Sweet Chilli Used</th>
+            <th>Sweet Chilli Per Item</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in records %}
+            {% if loop.index0 < records|length - 1 %}
+                {% set previous_entry = records[loop.index0 + 1] %}
+                {% set sweet_chilli_used = (previous_entry.sweetChilliOnHand + record.purchases) - record.sweetChilliOnHand %}
+                {% set sweet_chilli_per_item = sweet_chilli_used / record.piesSold if record.piesSold > 0 else 0 %}
+        <tr>
+            <td>{{ record.date }}</td>
+            <td>{{ "%.2f"|format(record.sweetChilliOnHand) }}</td>
+            <td>{{ "%.2f"|format(record.purchases) }}</td>
+            <td>{{ "%.2f"|format(record.piesSold) }}</td>
+            <td>{{ "%.2f"|format(sweet_chilli_used) }}</td>
+            <td>{{ "%.2f"|format(sweet_chilli_per_item) }}</td>
+            <td>
+                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/sweet-chilli/{{ record.id }}', {{ record.id }})">Delete</button>
+            </td>
+        </tr>
+            {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
 <div style="color: #999; text-align: center; padding: 40px; font-size: 14px;">
     No entries yet
 </div>
+{% endif %}
 
 {% endblock %}
 
@@ -45,13 +95,69 @@
 <script>
     document.getElementById('date').valueAsDate = new Date();
     
+    // Auto-fill from CSV data on page load
+    async function updateSweetChilliDataFromCSV() {
+        const dateInput = document.getElementById('date').value;
+        
+        if (!dateInput) return;
+        
+        // Check if there are existing entries in the history table
+        const historyTable = document.querySelector('table tbody');
+        const hasExistingEntries = historyTable && historyTable.querySelectorAll('tr').length > 0;
+        
+        // Fetch items sold data
+        try {
+            const itemsSoldResponse = await fetch(`/api/bakery/sweet-chilli-pies-sold/${dateInput}`);
+            const itemsSoldData = await itemsSoldResponse.json();
+            
+            if (itemsSoldData.success) {
+                const itemsSoldValue = parseFloat(itemsSoldData.pies_sold) || 0;
+                document.getElementById('itemsSold').value = itemsSoldValue.toFixed(2);
+                if (itemsSoldValue > 0) {
+                    document.getElementById('itemsSoldValue').textContent = itemsSoldValue.toFixed(2);
+                    document.getElementById('itemsSoldBadge').style.display = 'inline-block';
+                } else {
+                    document.getElementById('itemsSoldBadge').style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error("[v0] Error fetching items sold data:", error);
+        }
+        
+        // Always fetch purchases data
+        try {
+            const purchasesResponse = await fetch(`/api/bakery/sweet-chilli-purchases/${dateInput}`);
+            const purchasesData = await purchasesResponse.json();
+            
+            if (purchasesData.success) {
+                const purchasesValue = parseFloat(purchasesData.purchases) || 0;
+                document.getElementById('purchases').value = purchasesValue.toFixed(2);
+                if (purchasesValue > 0) {
+                    document.getElementById('purchasesValue').textContent = purchasesValue.toFixed(2);
+                    document.getElementById('purchasesBadge').style.display = 'inline-block';
+                } else {
+                    document.getElementById('purchasesBadge').style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error("[v0] Error fetching purchases data:", error);
+        }
+    }
+    
+    // Initial load
+    updateSweetChilliDataFromCSV();
+    
+    // Update when date changes
+    document.getElementById('date').addEventListener('change', updateSweetChilliDataFromCSV);
+    
     document.getElementById('sweetChilliForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const formData = {
             date: document.getElementById('date').value,
-            sweetChilliQuantity: document.getElementById('sweetChilliQuantity').value,
-            sweetChilliUsed: document.getElementById('sweetChilliUsed').value
+            sweetChilliOnHand: document.getElementById('sweetChilliOnHand').value,
+            purchases: document.getElementById('purchases').value,
+            piesSold: document.getElementById('itemsSold').value
         };
 
         try {
