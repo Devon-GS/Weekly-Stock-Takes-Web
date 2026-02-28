@@ -118,6 +118,16 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Bakery mayo table
+    c.execute('''CREATE TABLE IF NOT EXISTS bakeryMayo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        mayoOnHand REAL DEFAULT 0,
+        purchases REAL DEFAULT 0,
+        piesSold REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
     conn.commit()
     conn.close()
 
@@ -1021,8 +1031,13 @@ def bakery_egg_wash():
 
 @app.route('/bakery/mayo')
 def bakery_mayo():
-    """Bakery mayo usage tracking page"""
-    return render_template('bakery/mayo.html')
+    """Bakery mayo tracking page"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM bakeryMayo ORDER BY date DESC")
+    records = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return render_template('bakery/mayo.html', records=records)
 
 @app.route('/bakery/sweet-chilli')
 def bakery_sweet_chilli():
@@ -1301,10 +1316,53 @@ def delete_bakery_egg_wash(record_id):
 
 @app.route('/api/bakery/mayo', methods=['POST'])
 def add_bakery_mayo():
-    """Add mayo usage entry"""
+    """Add mayo entry"""
     try:
         data = request.json
+        date_str = format_date(data.get('date', ''))
+        mayo_on_hand = float(data.get('mayoOnHand', 0))
+        purchases = float(data.get('purchases', 0))
+        pies_sold = float(data.get('piesSold', 0))
+        
+        print(f"[v0] Adding mayo entry: date={date_str}, mayo_on_hand={mayo_on_hand}, purchases={purchases}, pies_sold={pies_sold}")
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("""INSERT INTO bakeryMayo
+                    (date, mayoOnHand, purchases, piesSold)
+                    VALUES (?, ?, ?, ?)""",
+                 (date_str, mayo_on_hand, purchases, pies_sold))
+        
+        conn.commit()
+        
+        # Verify the insert
+        c.execute("SELECT COUNT(*) as count FROM bakeryMayo")
+        result = c.fetchone()
+        print(f"[v0] Total mayo records in database: {result['count']}")
+        
+        conn.close()
+        
         return jsonify({'success': True, 'message': 'Mayo entry added successfully'})
+    except Exception as e:
+        print(f"[v0] Error adding mayo entry: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/mayo/<int:record_id>', methods=['DELETE'])
+def delete_bakery_mayo(record_id):
+    """Delete mayo entry"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        c.execute("DELETE FROM bakeryMayo WHERE id = ?", (record_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Mayo entry deleted successfully'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -1358,6 +1416,8 @@ def bakery_settings_page():
     normal_dough_sales_settings = get_settings('normal_dough_sales')
     egg_wash_sales_settings = get_settings('egg_wash_sales')
     egg_purchased_settings = get_settings('egg_purchased')
+    mayo_sales_settings = get_settings('mayo_sales')
+    mayo_purchased_settings = get_settings('mayo_purchased')
     
     return render_template('bakery/settings.html',
                           cake_flour_bought_settings=cake_flour_bought_settings,
@@ -1368,7 +1428,9 @@ def bakery_settings_page():
                           pizza_dough_sales_settings=pizza_dough_sales_settings,
                           normal_dough_sales_settings=normal_dough_sales_settings,
                           egg_wash_sales_settings=egg_wash_sales_settings,
-                          egg_purchased_settings=egg_purchased_settings)
+                          egg_purchased_settings=egg_purchased_settings,
+                          mayo_sales_settings=mayo_sales_settings,
+                          mayo_purchased_settings=mayo_purchased_settings)
 
 @app.route('/api/settings/<category>', methods=['POST'])
 def save_category_settings(category):
@@ -1508,6 +1570,35 @@ def save_egg_wash_settings():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
+@app.route('/api/settings/mayo', methods=['POST'])
+def save_mayo_settings():
+    """Save mayo CSV product descriptions"""
+    try:
+        data = request.json
+        
+        categories = {
+            'mayo_sales': data.get('mayo_sales', []),
+            'mayo_purchased': data.get('mayo_purchased', [])
+        }
+        
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Save each category's descriptions
+        for category, descriptions in categories.items():
+            if descriptions:
+                desc_str = '|'.join(descriptions)
+                c.execute("""INSERT OR REPLACE INTO csvSettings (category, descriptions, updated_at)
+                             VALUES (?, ?, CURRENT_TIMESTAMP)""",
+                         (category, desc_str))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Mayo settings saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
 @app.route('/api/bakery/egg-pies-sold/<date>')
 def get_egg_pies_sold_for_date(date):
     """Get pies sold from CSV between last entry and current date"""
@@ -1614,6 +1705,116 @@ def get_egg_purchases_for_date(date):
         return jsonify({'success': True, 'purchases': total_purchases})
     except Exception as e:
         print(f"[v0] Exception in get_egg_purchases_for_date: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/mayo-pies-sold/<date>')
+def get_mayo_pies_sold_for_date(date):
+    """Get pies sold from CSV between last entry and current date"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        # Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
+        current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
+        # Get the latest mayo entry before this date
+        c.execute("SELECT date FROM bakeryMayo WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
+        previous_record = c.fetchone()
+        
+        # Determine the start date for the range
+        if previous_record:
+            last_date = previous_record['date']
+            last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+        else:
+            last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+        
+        current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+        print(f"[v0] Mayo pies sold range: {last_date_obj} < date <= {current_date_obj}")
+        
+        total_pies = 0
+        
+        # Get imported sales data with dates
+        c.execute("SELECT description, quantity, date FROM importedData WHERE data_type = 'sales'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get mayo sales settings
+            mayo_sales = get_settings('mayo_sales')
+            
+            # Sum all sales that match product descriptions between dates
+            for row in imported_rows:
+                if not row['description'] or not row['date']:
+                    continue
+                
+                try:
+                    row_date = parser.parse(row['date'], dayfirst=True).date()
+                    
+                    # Check if date is in range
+                    if last_date_obj < row_date <= current_date_obj:
+                        description_lower = row['description'].lower()
+                        quantity = row['quantity']
+                        
+                        # Check mayo products
+                        for desc in mayo_sales:
+                            if desc and desc.lower() in description_lower:
+                                total_pies += quantity
+                                print(f"[v0] Matched mayo pies sold: '{desc}' in '{row['description']}' (+{quantity})")
+                                break
+                except Exception as e:
+                    continue
+        
+        conn.close()
+        
+        print(f"[v0] Total mayo pies sold calculated: {total_pies}")
+        return jsonify({'success': True, 'pies_sold': total_pies})
+    except Exception as e:
+        print(f"[v0] Exception in get_mayo_pies_sold_for_date: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/bakery/mayo-purchases/<date>')
+def get_mayo_purchases_for_date(date):
+    """Get mayo purchases from CSV - sum all matching products"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        
+        print(f"[v0] Calculating total mayo purchases (no date filter)")
+        
+        total_purchases = 0
+        
+        # Get imported purchase data
+        c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
+        imported_rows = [dict(row) for row in c.fetchall()]
+        
+        if imported_rows:
+            # Get mayo purchased settings
+            mayo_purchased = get_settings('mayo_purchased')
+            
+            # Sum all purchases that match product descriptions
+            for row in imported_rows:
+                if not row['description']:
+                    continue
+                
+                description_lower = row['description'].lower()
+                quantity = row['quantity']
+                
+                # Check mayo purchased products
+                for desc in mayo_purchased:
+                    if desc and desc.lower() in description_lower:
+                        total_purchases += quantity
+                        print(f"[v0] Matched mayo purchase: '{desc}' in '{row['description']}' (+{quantity})")
+                        break
+        
+        conn.close()
+        
+        print(f"[v0] Total mayo purchases calculated: {total_purchases}")
+        return jsonify({'success': True, 'purchases': total_purchases})
+    except Exception as e:
+        print(f"[v0] Exception in get_mayo_purchases_for_date: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400

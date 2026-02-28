@@ -189,14 +189,39 @@
     <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
         <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Mayo Usage Settings</label>
         
-        <div class="form-group">
+        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
             <label>Mayo CSV Product Descriptions</label>
-            <div id="mayo-descriptions" class="descriptions-list">
-                <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for mayo sales:</p>
+            <div id="mayo-sales-descriptions" class="descriptions-list">
+                {% for desc in mayo_sales_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="mayo-sales-desc" placeholder="e.g., Pies">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
             </div>
-            <button type="button" class="btn-small" onclick="addDescriptionField('mayo')">+ Add Description</button>
-            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('mayo')">Save Mayo Settings</button>
+            <button type="button" class="btn-small" onclick="addDescriptionField('mayo-sales')">+ Add Description</button>
         </div>
+
+        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+            <label>Mayo Purchased Product Descriptions</label>
+            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for mayo purchases:</p>
+            <div id="mayo-purchased-descriptions" class="descriptions-list">
+                {% for desc in mayo_purchased_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="mayo-purchased-desc" placeholder="e.g., Mayo">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('mayo-purchased')">+ Add Description</button>
+        </div>
+
+        <button class="btn" style="margin-top: 10px;" onclick="saveMayoSettings()">Save Mayo Settings</button>
     </div>
 
     <div class="form-group" style="padding-top: 20px; border-top: 1px solid #e0e0e0;">
@@ -259,6 +284,12 @@
         } else if (category === 'egg-purchased') {
             containerId = 'egg-purchased-descriptions';
             inputClass = 'egg-purchased-desc';
+        } else if (category === 'mayo-sales') {
+            containerId = 'mayo-sales-descriptions';
+            inputClass = 'mayo-sales-desc';
+        } else if (category === 'mayo-purchased') {
+            containerId = 'mayo-purchased-descriptions';
+            inputClass = 'mayo-purchased-desc';
         }
         
         const container = document.getElementById(containerId);
@@ -428,6 +459,42 @@
         }
 
         fetch('/api/settings/egg-wash', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error saving settings', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving settings', 'error');
+        });
+    }
+
+    function saveMayoSettings() {
+        const settings = {
+            mayo_sales: Array.from(document.querySelectorAll('input.mayo-sales-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            mayo_purchased: Array.from(document.querySelectorAll('input.mayo-purchased-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0)
+        };
+
+        if (Object.values(settings).every(arr => arr.length === 0)) {
+            alert('Please add at least one description for each category');
+            return;
+        }
+
+        fetch('/api/settings/mayo', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
