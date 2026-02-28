@@ -3,157 +3,128 @@
 {% block title %}Bakery Settings{% endblock %}
 
 {% block content %}
-<h2 style="margin-bottom: 30px; color: #333; font-size: 24px;">Bakery Settings</h2>
+<div class="settings-container">
+    <h2>Bakery Settings</h2>
+    <p style="color: #666; margin-bottom: 30px;">Configure product descriptions and tracking parameters for bakery items.</p>
 
-<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-    <p style="color: #333; font-size: 14px;">
-        <strong>Configure bakery settings:</strong> Set up product descriptions and other bakery-specific tracking parameters.
-    </p>
-</div>
-
-<div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-    <div class="form-group" style="margin-bottom: 30px;">
-        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Dough Settings</label>
-        
+    <!-- Dough Settings -->
+    <div class="settings-section">
+        <h3>Dough Settings</h3>
         <div class="form-group">
-            <label>Dough CSV Product Descriptions</label>
-            <div id="dough-descriptions" class="descriptions-list">
-                <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+            <label><strong>Dough Purchases CSV Product Descriptions</strong></label>
+            <div id="cake-flour-bought-descriptions" class="descriptions-list">
+                {% for desc in cake_flour_bought_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="cake-flour-bought-desc" placeholder="e.g., Cake Flour Bags">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
             </div>
-            <button type="button" class="btn-small" onclick="addDescriptionField('dough')">+ Add Description</button>
-            <button class="btn" style="margin-top: 10px;" onclick="saveSettings('dough')">Save Dough Settings</button>
+            <button type="button" class="btn-small" onclick="addDescriptionField('cake-flour-bought')">+ Add Description</button>
         </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label><strong>Bread Flour Bought</strong></label>
+            <div id="bread-flour-bought-descriptions" class="descriptions-list">
+                {% for desc in bread_flour_bought_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="bread-flour-bought-desc" placeholder="e.g., Bread Flour Bags">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('bread-flour-bought')">+ Add Description</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label><strong>Yeast Bought</strong></label>
+            <div id="yeast-bought-descriptions" class="descriptions-list">
+                {% for desc in yeast_bought_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="yeast-bought-desc" placeholder="e.g., Yeast Packets">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('yeast-bought')">+ Add Description</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label><strong>Oil Bought</strong></label>
+            <div id="oil-bought-descriptions" class="descriptions-list">
+                {% for desc in oil_bought_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="oil-bought-desc" placeholder="e.g., Oil Bottles">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('oil-bought')">+ Add Description</button>
+        </div>
+
+        <div class="form-group" style="margin-top: 15px;">
+            <label><strong>Sugar Bought</strong></label>
+            <div id="sugar-bought-descriptions" class="descriptions-list">
+                {% for desc in sugar_bought_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="sugar-bought-desc" placeholder="e.g., Sugar Bags">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('sugar-bought')">+ Add Description</button>
+        </div>
+
+        <button class="btn" style="margin-top: 15px;" onclick="saveDoughPurchasesSettings()">Save Dough Purchases Settings</button>
 
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label>Dough Purchases CSV Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Configure product descriptions for each ingredient purchased:</p>
-            
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-                <div class="form-group" style="margin-bottom: 10px;">
-                    <label>Cake flour bought</label>
-                    <div id="cake-flour-bought-descriptions" class="descriptions-list">
-                        {% for desc in cake_flour_bought_settings %}
-                            <div class="description-item">
-                                <input type="text" value="{{ desc }}" class="cake-flour-bought-desc" placeholder="e.g., Cake Flour Bags">
-                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
-                            </div>
-                        {% else %}
-                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
-                        {% endfor %}
+            <label><strong>Dough Sales</strong></label>
+            <div id="pizza-dough-sales-descriptions" class="descriptions-list">
+                {% for desc in pizza_dough_sales_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="pizza-dough-sales-desc" placeholder="e.g., Pizza Dough">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
                     </div>
-                    <button type="button" class="btn-small" onclick="addDescriptionField('cake-flour-bought')">+ Add Description</button>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 10px;">
-                    <label>Bread flour bought</label>
-                    <div id="bread-flour-bought-descriptions" class="descriptions-list">
-                        {% for desc in bread_flour_bought_settings %}
-                            <div class="description-item">
-                                <input type="text" value="{{ desc }}" class="bread-flour-bought-desc" placeholder="e.g., Bread Flour Bags">
-                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
-                            </div>
-                        {% else %}
-                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
-                        {% endfor %}
-                    </div>
-                    <button type="button" class="btn-small" onclick="addDescriptionField('bread-flour-bought')">+ Add Description</button>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 10px;">
-                    <label>Yeast bought</label>
-                    <div id="yeast-bought-descriptions" class="descriptions-list">
-                        {% for desc in yeast_bought_settings %}
-                            <div class="description-item">
-                                <input type="text" value="{{ desc }}" class="yeast-bought-desc" placeholder="e.g., Yeast Packets">
-                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
-                            </div>
-                        {% else %}
-                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
-                        {% endfor %}
-                    </div>
-                    <button type="button" class="btn-small" onclick="addDescriptionField('yeast-bought')">+ Add Description</button>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 10px;">
-                    <label>Oil bought</label>
-                    <div id="oil-bought-descriptions" class="descriptions-list">
-                        {% for desc in oil_bought_settings %}
-                            <div class="description-item">
-                                <input type="text" value="{{ desc }}" class="oil-bought-desc" placeholder="e.g., Oil Bottles">
-                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
-                            </div>
-                        {% else %}
-                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
-                        {% endfor %}
-                    </div>
-                    <button type="button" class="btn-small" onclick="addDescriptionField('oil-bought')">+ Add Description</button>
-                </div>
-
-                <div class="form-group">
-                    <label>Sugar bought</label>
-                    <div id="sugar-bought-descriptions" class="descriptions-list">
-                        {% for desc in sugar_bought_settings %}
-                            <div class="description-item">
-                                <input type="text" value="{{ desc }}" class="sugar-bought-desc" placeholder="e.g., Sugar Bags">
-                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
-                            </div>
-                        {% else %}
-                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
-                        {% endfor %}
-                    </div>
-                    <button type="button" class="btn-small" onclick="addDescriptionField('sugar-bought')">+ Add Description</button>
-                </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
             </div>
-
-            <button class="btn" style="margin-top: 10px;" onclick="saveDoughPurchasesSettings()">Save Dough Purchases Settings</button>
+            <button type="button" class="btn-small" onclick="addDescriptionField('pizza-dough-sales')">+ Add Description</button>
         </div>
 
-        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label>Dough Sales CSV Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Configure product descriptions for dough sales:</p>
-            
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-                <div class="form-group" style="margin-bottom: 10px;">
-                    <label>Pizza Dough Sales</label>
-                    <div id="pizza-dough-sales-descriptions" class="descriptions-list">
-                        {% for desc in pizza_dough_sales_settings %}
-                            <div class="description-item">
-                                <input type="text" value="{{ desc }}" class="pizza-dough-sales-desc" placeholder="e.g., Pizza Dough">
-                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
-                            </div>
-                        {% else %}
-                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
-                        {% endfor %}
+        <div class="form-group" style="margin-top: 15px;">
+            <label><strong>Normal Dough Sales</strong></label>
+            <div id="normal-dough-sales-descriptions" class="descriptions-list">
+                {% for desc in normal_dough_sales_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="normal-dough-sales-desc" placeholder="e.g., Normal Dough">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
                     </div>
-                    <button type="button" class="btn-small" onclick="addDescriptionField('pizza-dough-sales')">+ Add Description</button>
-                </div>
-
-                <div class="form-group">
-                    <label>Normal Dough Sales</label>
-                    <div id="normal-dough-sales-descriptions" class="descriptions-list">
-                        {% for desc in normal_dough_sales_settings %}
-                            <div class="description-item">
-                                <input type="text" value="{{ desc }}" class="normal-dough-sales-desc" placeholder="e.g., Normal Dough">
-                                <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
-                            </div>
-                        {% else %}
-                            <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
-                        {% endfor %}
-                    </div>
-                    <button type="button" class="btn-small" onclick="addDescriptionField('normal-dough-sales')">+ Add Description</button>
-                </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
             </div>
-
-            <button class="btn" style="margin-top: 10px;" onclick="saveDoughSalesSettings()">Save Dough Sales Settings</button>
+            <button type="button" class="btn-small" onclick="addDescriptionField('normal-dough-sales')">+ Add Description</button>
         </div>
+
+        <button class="btn" style="margin-top: 15px;" onclick="saveDoughSalesSettings()">Save Dough Sales Settings</button>
     </div>
 
-    <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Egg Wash Settings</label>
-        
-        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-            <label>Egg Wash CSV Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for egg wash sales:</p>
+    <!-- Egg Wash Settings -->
+    <div class="settings-section">
+        <h3>Egg Wash Settings</h3>
+        <div class="form-group">
+            <label><strong>Egg Wash Product Descriptions</strong></label>
             <div id="egg-wash-sales-descriptions" class="descriptions-list">
                 {% for desc in egg_wash_sales_settings %}
                     <div class="description-item">
@@ -167,9 +138,8 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('egg-wash-sales')">+ Add Description</button>
         </div>
 
-        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-            <label>Egg Purchased Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for egg purchases:</p>
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label><strong>Egg Purchased Product Descriptions</strong></label>
             <div id="egg-purchased-descriptions" class="descriptions-list">
                 {% for desc in egg_purchased_settings %}
                     <div class="description-item">
@@ -183,15 +153,14 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('egg-purchased')">+ Add Description</button>
         </div>
 
-        <button class="btn" style="margin-top: 10px;" onclick="saveEggWashSettings()">Save Egg Wash Settings</button>
+        <button class="btn" style="margin-top: 15px;" onclick="saveEggWashSettings()">Save Egg Wash Settings</button>
     </div>
 
-    <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Mayo Usage Settings</label>
-        
-        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-            <label>Mayo CSV Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for mayo sales:</p>
+    <!-- Mayo Settings -->
+    <div class="settings-section">
+        <h3>Mayo Settings</h3>
+        <div class="form-group">
+            <label><strong>Mayo Sales Product Descriptions</strong></label>
             <div id="mayo-sales-descriptions" class="descriptions-list">
                 {% for desc in mayo_sales_settings %}
                     <div class="description-item">
@@ -205,9 +174,8 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('mayo-sales')">+ Add Description</button>
         </div>
 
-        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-            <label>Mayo Purchased Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for mayo purchases:</p>
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label><strong>Mayo Purchased Product Descriptions</strong></label>
             <div id="mayo-purchased-descriptions" class="descriptions-list">
                 {% for desc in mayo_purchased_settings %}
                     <div class="description-item">
@@ -221,15 +189,14 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('mayo-purchased')">+ Add Description</button>
         </div>
 
-        <button class="btn" style="margin-top: 10px;" onclick="saveMayoSettings()">Save Mayo Settings</button>
+        <button class="btn" style="margin-top: 15px;" onclick="saveMayoSettings()">Save Mayo Settings</button>
     </div>
 
-    <div class="form-group" style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-        <label style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px; display: block;">Sweet Chilli Usage Settings</label>
-        
-        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-            <label>Sweet Chilli CSV Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for sweet chilli sales:</p>
+    <!-- Sweet Chilli Settings -->
+    <div class="settings-section">
+        <h3>Sweet Chilli Settings</h3>
+        <div class="form-group">
+            <label><strong>Sweet Chilli Sales Product Descriptions</strong></label>
             <div id="sweet-chilli-sales-descriptions" class="descriptions-list">
                 {% for desc in sweet_chilli_sales_settings %}
                     <div class="description-item">
@@ -243,9 +210,8 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('sweet-chilli-sales')">+ Add Description</button>
         </div>
 
-        <div class="form-group" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
-            <label>Sweet Chilli Purchased Product Descriptions</label>
-            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Product descriptions for sweet chilli purchases:</p>
+        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <label><strong>Sweet Chilli Purchased Product Descriptions</strong></label>
             <div id="sweet-chilli-purchased-descriptions" class="descriptions-list">
                 {% for desc in sweet_chilli_purchased_settings %}
                     <div class="description-item">
@@ -259,9 +225,86 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('sweet-chilli-purchased')">+ Add Description</button>
         </div>
 
-        <button class="btn" style="margin-top: 10px;" onclick="saveSweetChilliSettings()">Save Sweet Chilli Settings</button>
+        <button class="btn" style="margin-top: 15px;" onclick="saveSweetChilliSettings()">Save Sweet Chilli Settings</button>
     </div>
 </div>
+
+<style>
+    .settings-container {
+        max-width: 800px;
+    }
+
+    .settings-container h2 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 24px;
+    }
+
+    .settings-section {
+        background: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        border-left: 4px solid #667eea;
+    }
+
+    .settings-section h3 {
+        color: #667eea;
+        font-size: 18px;
+        margin-bottom: 15px;
+    }
+
+    .descriptions-list {
+        background: white;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .description-item {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: center;
+    }
+
+    .description-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .description-item input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+
+    .btn-small {
+        padding: 8px 12px;
+        font-size: 12px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-small:hover {
+        background: #764ba2;
+        transform: translateY(-1px);
+    }
+
+    .btn-small.btn-danger {
+        background: #ff6b6b;
+    }
+
+    .btn-small.btn-danger:hover {
+        background: #ff5252;
+    }
+</style>
 
 {% endblock %}
 

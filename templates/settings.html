@@ -11,7 +11,7 @@
     <div class="settings-section">
         <h3>Milk Usage</h3>
         <div class="form-group">
-            <label>Product Descriptions (for matching CSV data)</label>
+            <label><strong>Milk Usage Sales Product Descriptions</strong></label>
             <div id="milk-descriptions" class="descriptions-list">
                 {% for desc in milk_settings %}
                     <div class="description-item">
@@ -31,7 +31,7 @@
     <div class="settings-section">
         <h3>Bean Coffee</h3>
         <div class="form-group">
-            <label>Product Descriptions (for matching CSV data)</label>
+            <label><strong>Bean Sales Product Descriptions</strong></label>
             <div id="bean-descriptions" class="descriptions-list">
                 {% for desc in bean_settings %}
                     <div class="description-item">
@@ -51,7 +51,7 @@
     <div class="settings-section">
         <h3>Lavazza Coffee</h3>
         <div class="form-group">
-            <label>Sales CSV Product Descriptions</label>
+            <label><strong>Lavazza Sales Product Descriptions</strong></label>
             <div id="lavazza-descriptions" class="descriptions-list">
                 {% for desc in lavazza_settings %}
                     <div class="description-item">
@@ -67,7 +67,7 @@
         </div>
 
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label>Purchases CSV Product Descriptions</label>
+            <label><strong>Lavazza Purchases Product Descriptions</strong></label>
             <div id="lavazza-purchases-descriptions" class="descriptions-list">
                 {% for desc in lavazza_purchases_settings %}
                     <div class="description-item">
@@ -87,7 +87,7 @@
     <div class="settings-section">
         <h3>Sugar & Sweetener</h3>
         <div class="form-group">
-            <label>Sales CSV Product Descriptions</label>
+            <label><strong>Sugar & Sweetener Sales Product Descriptions</strong></label>
             <div id="sugar-descriptions" class="descriptions-list">
                 {% for desc in sugar_settings %}
                     <div class="description-item">
@@ -103,7 +103,7 @@
         </div>
 
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label>Sugar Purchases CSV Product Descriptions</label>
+            <label><strong>Sugar Purchases Product Descriptions</strong></label>
             <div id="sugar-purchases-descriptions" class="descriptions-list">
                 {% for desc in sugar_purchases_settings %}
                     <div class="description-item">
@@ -119,7 +119,7 @@
         </div>
 
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label>Sweetener Purchases CSV Product Descriptions</label>
+            <label><strong>Sweetener Purchases CSV Product Descriptions</strong></label>
             <div id="sweetener-purchases-descriptions" class="descriptions-list">
                 {% for desc in sweetener_purchases_settings %}
                     <div class="description-item">
@@ -135,14 +135,14 @@
         </div>
 
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label>Product Weight Settings</label>
+            <label><strong><u>Product Weight Settings</u></strong></label>
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                 <div class="form-group" style="flex: 1; min-width: 200px;">
-                    <label for="sugarWeight">Sugar Weight per Unit (g)</label>
+                    <label for="sugarWeight"><strong>Sugar Weight per Unit (g)</strong></label>
                     <input type="number" id="sugarWeight" name="sugarWeight" step="0.01" min="0.01" value="{{ sugar_weight }}" placeholder="e.g., 1000">
                 </div>
                 <div class="form-group" style="flex: 1; min-width: 200px;">
-                    <label for="sweetenerWeight">Sweetener Weight per Unit (g)</label>
+                    <label for="sweetenerWeight"><strong>Sweetener Weight per Unit (g)</strong></label>
                     <input type="number" id="sweetenerWeight" name="sweetenerWeight" step="0.01" min="0.01" value="{{ sweetener_weight }}" placeholder="e.g., 500">
                 </div>
             </div>
