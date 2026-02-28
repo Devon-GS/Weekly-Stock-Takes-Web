@@ -519,6 +519,9 @@
         }
 
         // Update initial state
+        document.querySelectorAll('.dept-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
         document.querySelector(`[data-department="${currentDepartment}"]`).classList.add('active');
         updateDepartmentTabs();
 
