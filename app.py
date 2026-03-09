@@ -1027,6 +1027,7 @@ def bakery_dough():
 	c.execute("SELECT * FROM bakeryDough ORDER BY date DESC")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
+	print(records)
 	return render_template('bakery/dough.html', records=records)
 
 @app.route('/bakery/egg-wash')
@@ -1139,7 +1140,7 @@ def get_dough_purchases_for_date(date):
 		
 		current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
 		
-		purchases = {'cakeFlourBought': 0, 'breadFlourBought': 0, 'yeastBought': 0, 'oilBought': 0, 'sugarBought': 0}
+		purchases = {'cakeFlourBought': 0, 'breadFlourBought': 0, 'yeastBought': 0, 'oilBought': 0, 'sugarBought': 0, 'saltBought': 0}
 		
 		# Get imported purchase data
 		c.execute("SELECT description, quantity FROM importedData WHERE data_type = 'purchases'")
@@ -1152,6 +1153,7 @@ def get_dough_purchases_for_date(date):
 			yeast_settings = get_settings('yeast_bought')
 			oil_settings = get_settings('oil_bought')
 			sugar_settings = get_settings('sugar_bought')
+			salt_settings = get_settings('salt_bought')
 			
 			# Sum all purchases that match product descriptions
 			for row in imported_rows:
@@ -1185,6 +1187,11 @@ def get_dough_purchases_for_date(date):
 				for desc in sugar_settings:
 					if desc and desc.lower() in description_lower:
 						purchases['sugarBought'] += quantity
+						break
+				# Check salt
+				for desc in salt_settings:
+					if desc and desc.lower() in description_lower:
+						purchases['saltBought'] += quantity
 						break
 		
 		conn.close()
@@ -1239,7 +1246,7 @@ def get_dough_sales_for_date(date):
 					row_date = parser.parse(row['date'], dayfirst=True).date()
 					
 					# Check if date is in range
-					if last_date_obj < row_date <= current_date_obj:
+					if last_date_obj <= row_date <= current_date_obj:
 						description_lower = row['description'].lower()
 						quantity = row['quantity']
 						
@@ -1457,6 +1464,7 @@ def bakery_settings_page():
 	yeast_bought_settings = get_settings('yeast_bought')
 	oil_bought_settings = get_settings('oil_bought')
 	sugar_bought_settings = get_settings('sugar_bought')
+	salt_bought_settings = get_settings('salt_bought')
 	pizza_dough_sales_settings = get_settings('pizza_dough_sales')
 	normal_dough_sales_settings = get_settings('normal_dough_sales')
 	egg_wash_sales_settings = get_settings('egg_wash_sales')
@@ -1472,6 +1480,7 @@ def bakery_settings_page():
 						  yeast_bought_settings=yeast_bought_settings,
 						  oil_bought_settings=oil_bought_settings,
 						  sugar_bought_settings=sugar_bought_settings,
+						  salt_bought_settings=salt_bought_settings,
 						  pizza_dough_sales_settings=pizza_dough_sales_settings,
 						  normal_dough_sales_settings=normal_dough_sales_settings,
 						  egg_wash_sales_settings=egg_wash_sales_settings,
@@ -1540,7 +1549,8 @@ def save_dough_purchases_settings():
 			'bread_flour_bought': data.get('bread_flour_bought', []),
 			'yeast_bought': data.get('yeast_bought', []),
 			'oil_bought': data.get('oil_bought', []),
-			'sugar_bought': data.get('sugar_bought', [])
+			'sugar_bought': data.get('sugar_bought', []),
+			'salt_bought': data.get('salt_bought', [])
 		}
 		
 		conn = get_db_connection()

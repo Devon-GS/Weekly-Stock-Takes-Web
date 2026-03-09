@@ -85,10 +85,25 @@
             <button type="button" class="btn-small" onclick="addDescriptionField('sugar-bought')">+ Add Description</button>
         </div>
 
+        <div class="form-group" style="margin-top: 15px;">
+            <label><strong>Salt Bought</strong></label>
+            <div id="salt-bought-descriptions" class="descriptions-list">
+                {% for desc in salt_bought_settings %}
+                    <div class="description-item">
+                        <input type="text" value="{{ desc }}" class="salt-bought-desc" placeholder="e.g., Salt Packets">
+                        <button type="button" class="btn-small btn-danger" onclick="removeDescription(this)">Remove</button>
+                    </div>
+                {% else %}
+                    <p style="color: #999; font-size: 13px;">No descriptions configured yet.</p>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn-small" onclick="addDescriptionField('salt-bought')">+ Add Description</button>
+        </div>
+
         <button class="btn" style="margin-top: 15px;" onclick="saveDoughPurchasesSettings()">Save Dough Purchases Settings</button>
 
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <label><strong>Dough Sales</strong></label>
+            <label><strong>Pizza Sales</strong></label>
             <div id="pizza-dough-sales-descriptions" class="descriptions-list">
                 {% for desc in pizza_dough_sales_settings %}
                     <div class="description-item">
@@ -340,6 +355,9 @@
         } else if (category === 'sugar-bought') {
             containerId = 'sugar-bought-descriptions';
             inputClass = 'sugar-bought-desc';
+        } else if (category === 'salt-bought') {
+            containerId = 'salt-bought-descriptions';
+            inputClass = 'salt-bought-desc';
         } else if (category === 'pizza-dough-sales') {
             containerId = 'pizza-dough-sales-descriptions';
             inputClass = 'pizza-dough-sales-desc';
@@ -451,6 +469,9 @@
                 .map(input => input.value.trim())
                 .filter(desc => desc.length > 0),
             sugar_bought: Array.from(document.querySelectorAll('input.sugar-bought-desc'))
+                .map(input => input.value.trim())
+                .filter(desc => desc.length > 0),
+            salt_bought: Array.from(document.querySelectorAll('input.salt-bought-desc'))
                 .map(input => input.value.trim())
                 .filter(desc => desc.length > 0)
         };

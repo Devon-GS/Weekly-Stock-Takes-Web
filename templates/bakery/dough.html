@@ -238,12 +238,14 @@
         {% for record in reversed_records %}
             {% if loop.index0 > 0 %}
                 {% set previous_record = reversed_records[loop.index0 - 1] %}
-                {% set cake_used = (previous_record.cakeFlour + record.get('cakeFlourBought', 0)) - record.cakeFlour %}
-                {% set bread_used = (previous_record.breadFlour + record.get('breadFlourBought', 0)) - record.breadFlour %}
-                {% set yeast_used = (previous_record.yeast + record.get('yeastBought', 0)) - record.yeast %}
-                {% set oil_used = (previous_record.oil + record.get('oilBought', 0)) - record.oil %}
-                {% set sugar_used = (previous_record.sugar + record.get('sugarBought', 0)) - record.sugar %}
-                {% set salt_used = (previous_record.get('salt', 0) + record.get('saltBought', 0)) - record.get('salt', 0) %}
+				{% set total_dough = (record.get('pizzaSales', 0) + record.get('normalSales', 0) ) %}
+                {% set cake_used = ((previous_record.cakeFlour + record.get('cakeFlourBought', 0)) - record.cakeFlour) / record.get('normalSales', 0) %}
+                {% set bread_used = ((previous_record.breadFlour + record.get('breadFlourBought', 0)) - record.breadFlour) / record.get('pizzaSales', 0) %}
+                {% set yeast_used = ((previous_record.yeast + record.get('yeastBought', 0)) - record.yeast) / total_dough %}
+                {% set oil_used = ((previous_record.oil + record.get('oilBought', 0)) - record.oil) / total_dough %}
+                {% set sugar_used = ((previous_record.sugar + record.get('sugarBought', 0)) - record.sugar) / total_dough %}
+                {% set salt_used = ((previous_record.get('salt', 0) + record.get('saltBought', 0)) - record.get('salt', 0)) / total_dough %}
+                
         <tr>
             <td>{{ record.date }}</td>
             <td>{{ "%.2f"|format(cake_used) }}</td>
@@ -291,6 +293,7 @@
                 document.getElementById('yeastBought').value = (purchases.yeastBought || 0).toFixed(2);
                 document.getElementById('oilBought').value = (purchases.oilBought || 0).toFixed(2);
                 document.getElementById('sugarBought').value = (purchases.sugarBought || 0).toFixed(2);
+                document.getElementById('saltBought').value = (purchases.saltBought || 0).toFixed(2);
             }
         } catch (error) {
             console.error("[v0] Error fetching dough purchases data:", error);
@@ -308,22 +311,23 @@
             const data = await response.json();
 
             if (data.success) {
-                const pizzaSalesValue = parseFloat(data.pizza_sales) || 0;
-                const normalSalesValue = parseFloat(data.normal_sales) || 0;
+                const pizzaSalesValue = parseFloat(data.pizzaSales) || 0;
+                const normalSalesValue = parseFloat(data.normalSales) || 0;
 
                 // Check if this is the first entry
                 const existingEntries = await fetch('/api/bakery/dough-count').then(r => r.json());
 
-                if (existingEntries.count === 0 && pizzaSalesValue === 0 && normalSalesValue === 0) {
-                    // First entry and no sales found in CSV, ask user
-                    const userPizzaSales = prompt('How many Pizza Sales were there?', '0');
-                    if (userPizzaSales !== null) {
-                        document.getElementById('pizzaSales').value = parseFloat(userPizzaSales).toFixed(2);
-                        const userNormalSales = prompt('How many Other Sales were there?', '0');
-                        if (userNormalSales !== null) {
-                            document.getElementById('normalSales').value = parseFloat(userNormalSales).toFixed(2);
-                        }
-                    }
+                // if (existingEntries.count === 0 && pizzaSalesValue === 0 && normalSalesValue === 0) {
+                if (existingEntries.count === 0) {
+                    // // First entry and no sales found in CSV, ask user
+                    // const userPizzaSales = prompt('How many Pizza Sales were there?', '0');
+                    // if (userPizzaSales !== null) {
+                    //     document.getElementById('pizzaSales').value = parseFloat(userPizzaSales).toFixed(2);
+                    //     const userNormalSales = prompt('How many Other Sales were there?', '0');
+                    //     if (userNormalSales !== null) {
+                    //         document.getElementById('normalSales').value = parseFloat(userNormalSales).toFixed(2);
+                    //     }
+                    // }
                     document.getElementById('pizzaSalesBadge').style.display = 'none';
                     document.getElementById('normalSalesBadge').style.display = 'none';
                 } else {
