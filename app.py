@@ -1209,12 +1209,12 @@ def get_dough_sales_for_date(date):
 		conn = get_db_connection()
 		c = conn.cursor()
 		
+		# Get the latest dough entry before this date
+		c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
+		previous_record = c.fetchone()
+
 		# Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
 		current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
-		
-		# Get the latest dough entry before this date
-		c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
-		previous_record = c.fetchone()
 		
 		# Determine the start date for the range
 		if previous_record:
@@ -1246,6 +1246,7 @@ def get_dough_sales_for_date(date):
 					row_date = parser.parse(row['date'], dayfirst=True).date()
 					
 					# Check if date is in range
+					# print(last_date_obj, row_date, current_date_obj)
 					if last_date_obj <= row_date <= current_date_obj:
 						description_lower = row['description'].lower()
 						quantity = row['quantity']
