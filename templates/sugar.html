@@ -96,24 +96,37 @@
         </tr>
     </thead>
     <tbody>
-        {% for record in records %}
+        {% for record in records %}          
             {% if loop.index0 < records|length - 1 %}
                 {% set previous_entry = records[loop.index0 + 1] %}
                 {% set sugar_used = ((previous_entry.sugarHand / sugar_weight) + record.sugarBuy) - (record.sugarHand / sugar_weight) %}
                 {% set sweetener_used = ((previous_entry.sweetnerHand / sweetener_weight) + record.sweetnerBuy) - (record.sweetnerHand / sweetener_weight) %}
                 {% set total_used = (sugar_used + sweetener_used) / record.coffeeSold if record.coffeeSold > 0 else 0 %}
-        <tr>
-            <td>{{ record.date }}</td>
-            <td>{{ record.sugarBuy }}</td>
-            <td><span class="sugar-units" data-grams="{{ record.sugarHand }}" data-weight="{{ sugar_weight }}">-</span></td>
-            <td>{{ record.sweetnerBuy }}</td>
-            <td><span class="sweetener-units" data-grams="{{ record.sweetnerHand }}" data-weight="{{ sweetener_weight }}">-</span></td>
-            <td>{{ "%.2f"|format(record.coffeeSold) }}</td>
-            <td>{{ "%.2f"|format(total_used) }}</td>
-            <td>
-                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/sugar/{{ record.id }}', {{ record.id }})">Delete</button>
-            </td>
-        </tr>
+				<tr>
+					<td>{{ record.date }}</td>
+					<td>{{ record.sugarBuy }}</td>
+					<td><span class="sugar-units" data-grams="{{ record.sugarHand }}" data-weight="{{ sugar_weight }}">-</span></td>
+					<td>{{ record.sweetnerBuy }}</td>
+					<td><span class="sweetener-units" data-grams="{{ record.sweetnerHand }}" data-weight="{{ sweetener_weight }}">-</span></td>
+					<td>{{ "%.2f"|format(record.coffeeSold) }}</td>
+					<td>{{ "%.2f"|format(total_used) }}</td>
+					<td>
+						<button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/sugar/{{ record.id }}', {{ record.id }})">Delete</button>
+					</td>
+				</tr>
+			{% else %}
+				<tr>
+						<td>{{ record.date }}</td>
+						<td>{{ record.sugarBuy }}</td>
+						<td><span class="sugar-units" data-grams="{{ record.sugarHand }}" data-weight="{{ sugar_weight }}">-</span></td>
+						<td>{{ record.sweetnerBuy }}</td>
+						<td><span class="sweetener-units" data-grams="{{ record.sweetnerHand }}" data-weight="{{ sweetener_weight }}">-</span></td>
+						<td>{{ "%.2f"|format(record.coffeeSold) }}</td>
+						<td> - </td>
+						<td>
+							<button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/sugar/{{ record.id }}', {{ record.id }})">Delete</button>
+						</td>
+					</tr>
             {% endif %}
         {% endfor %}
     </tbody>
@@ -281,6 +294,7 @@
             });
 
             const data = await response.json();
+			console.log(data)
 
             if (data.success) {
                 showAlert(data.message, 'success');
