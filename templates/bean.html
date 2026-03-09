@@ -157,34 +157,34 @@
 {% block extra_js %}
 <script>
     // ==================== NOTES & GOALS FUNCTIONALITY ====================
-    const noteInput = document.getElementById('noteInput');
-    const savedIndicator = document.getElementById('savedIndicator');
-    const STORAGE_KEY = 'bean_page_note';
+    // const noteInput = document.getElementById('noteInput');
+    // const savedIndicator = document.getElementById('savedIndicator');
+    // const STORAGE_KEY = 'bean_page_note';
 
-    // Load saved note on page load
-    function loadNote() {
-        const savedNote = localStorage.getItem(STORAGE_KEY);
-        if (savedNote) {
-            noteInput.value = savedNote;
-        }
-    }
+    // // Load saved note on page load
+    // function loadNote() {
+    //     const savedNote = localStorage.getItem(STORAGE_KEY);
+    //     if (savedNote) {
+    //         noteInput.value = savedNote;
+    //     }
+    // }
 
-    // Save note to localStorage
-    function saveNote() {
-        localStorage.setItem(STORAGE_KEY, noteInput.value);
+    // // Save note to localStorage
+    // function saveNote() {
+    //     localStorage.setItem(STORAGE_KEY, noteInput.value);
 
-        // Show saved indicator
-        savedIndicator.style.display = 'inline-block';
-        setTimeout(() => {
-            savedIndicator.style.display = 'none';
-        }, 2000);
-    }
+    //     // Show saved indicator
+    //     savedIndicator.style.display = 'inline-block';
+    //     setTimeout(() => {
+    //         savedIndicator.style.display = 'none';
+    //     }, 2000);
+    // }
 
-    // Save on blur
-    noteInput.addEventListener('blur', saveNote);
+    // // Save on blur
+    // noteInput.addEventListener('blur', saveNote);
 
-    // Load note on page load
-    loadNote();
+    // // Load note on page load
+    // loadNote();
 
     // ==================== BEAN COFFEE TRACKING FUNCTIONALITY ====================
     document.getElementById('beanForm').addEventListener('submit', async (e) => {
