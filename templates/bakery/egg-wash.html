@@ -68,17 +68,32 @@
                 {% set previous_entry = records[loop.index0 + 1] %}
                 {% set eggs_used = (previous_entry.eggsOnHand + record.purchases) - record.eggsOnHand %}
                 {% set egg_wash_per_pie = eggs_used / record.piesSold if record.piesSold > 0 else 0 %}
-        <tr>
-            <td>{{ record.date }}</td>
-            <td>{{ "%.2f"|format(record.eggsOnHand) }}</td>
-            <td>{{ "%.2f"|format(record.purchases) }}</td>
-            <td>{{ "%.2f"|format(record.piesSold) }}</td>
-            <td>{{ "%.2f"|format(eggs_used) }}</td>
-            <td>{{ "%.2f"|format(egg_wash_per_pie) }}</td>
-            <td>
-                <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/egg-wash/{{ record.id }}', {{ record.id }})">Delete</button>
-            </td>
-        </tr>
+			<tr>
+				<td>{{ record.date }}</td>
+				<td>{{ "%.2f"|format(record.eggsOnHand) }}</td>
+				<td>{{ "%.2f"|format(record.purchases) }}</td>
+				<td>{{ "%.2f"|format(record.piesSold) }}</td>
+				<td>{{ "%.2f"|format(eggs_used) }}</td>
+				<td>{{ "%.2f"|format(egg_wash_per_pie) }}</td>
+				<td>
+					<button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/egg-wash/{{ record.id }}', {{ record.id }})">Delete</button>
+				</td>
+			</tr>
+		{% else %}
+			{% set eggs_used = 0 %}
+            {% set egg_wash_per_pie = 0 %}
+			
+			<tr>
+				<td>{{ record.date }}</td>
+				<td>{{ "%.2f"|format(record.eggsOnHand) }}</td>
+				<td>{{ "%.2f"|format(record.purchases) }}</td>
+				<td>{{ "%.2f"|format(record.piesSold) }}</td>
+				<td>{{ "%.2f"|format(eggs_used) }}</td>
+				<td>{{ "%.2f"|format(egg_wash_per_pie) }}</td>
+				<td>
+					<button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/egg-wash/{{ record.id }}', {{ record.id }})">Delete</button>
+				</td>
+			</tr>
             {% endif %}
         {% endfor %}
     </tbody>
