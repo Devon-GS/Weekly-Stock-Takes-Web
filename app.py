@@ -1800,7 +1800,7 @@ def get_mayo_pies_sold_for_date(date):
 		current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
 		
 		# Get the latest mayo entry before this date
-		c.execute("SELECT date FROM bakeryMayo WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
+		c.execute("SELECT date FROM bakeryMayo WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
 		previous_record = c.fetchone()
 		
 		# Determine the start date for the range
@@ -1831,7 +1831,7 @@ def get_mayo_pies_sold_for_date(date):
 					row_date = parser.parse(row['date'], dayfirst=True).date()
 					
 					# Check if date is in range
-					if last_date_obj < row_date <= current_date_obj:
+					if last_date_obj <= row_date <= current_date_obj:
 						description_lower = row['description'].lower()
 						quantity = row['quantity']
 						

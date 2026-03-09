@@ -79,6 +79,20 @@
                 <button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/mayo/{{ record.id }}', {{ record.id }})">Delete</button>
             </td>
         </tr>
+		{% else %}
+			{% set mayo_used = 0 %}
+            {% set mayo_per_pie = 0 %}
+			<tr>
+				<td>{{ record.date }}</td>
+				<td>{{ "%.2f"|format(record.mayoOnHand) }}</td>
+				<td>{{ "%.2f"|format(record.purchases) }}</td>
+				<td>{{ "%.2f"|format(record.piesSold) }}</td>
+				<td>{{ "%.2f"|format(mayo_used) }}</td>
+				<td>{{ "%.2f"|format(mayo_per_pie) }}</td>
+				<td>
+					<button type="button" class="btn-small btn-danger" onclick="deleteRecord('/api/bakery/mayo/{{ record.id }}', {{ record.id }})">Delete</button>
+				</td>
+			</tr>
             {% endif %}
         {% endfor %}
     </tbody>
