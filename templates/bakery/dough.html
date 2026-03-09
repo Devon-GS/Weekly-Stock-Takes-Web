@@ -5,12 +5,117 @@
 {% block content %}
 <h2 style="margin-bottom: 20px; color: #333; font-size: 24px;">Dough Tracking</h2>
 
-<div
-    style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+<div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
     <p style="color: #333; font-size: 14px;">
         <strong>Track dough:</strong> Record dough preparation, usage, and inventory data.
     </p>
 </div>
+
+<!-- Notes Widget -->
+<style>
+    .notes-widget {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .notes-widget-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 50px;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+    
+    .notes-widget-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .notes-widget-input::placeholder {
+        color: #999;
+    }
+    
+    .saved-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #4caf50;
+        font-size: 12px;
+        opacity: 0;
+        margin-top: 8px;
+        transition: opacity 0.3s;
+    }
+    
+    .saved-indicator.show {
+        opacity: 1;
+    }
+    
+    .checkmark {
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+</style>
+
+<div class="notes-widget">
+    <textarea 
+        id="notesWidget" 
+        class="notes-widget-input" 
+        placeholder="Enter a note or goal here..."></textarea>
+    <div class="saved-indicator" id="savedIndicator">
+        <span class="checkmark">✓</span>
+        <span>Saved</span>
+    </div>
+</div>
+
+<script>
+    const notesStorage = 'dough_tracking_notes';
+    const notesWidget = document.getElementById('notesWidget');
+    const savedIndicator = document.getElementById('savedIndicator');
+    
+    // Load notes from localStorage on page load
+    const savedNotes = localStorage.getItem(notesStorage);
+    if (savedNotes) {
+        notesWidget.value = savedNotes;
+    }
+    
+    // Save notes as user types (debounced)
+    let saveTimeout;
+    notesWidget.addEventListener('input', function() {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            localStorage.setItem(notesStorage, notesWidget.value);
+            showSavedIndicator();
+        }, 500);
+    });
+    
+    // Also save on blur to ensure immediate save
+    notesWidget.addEventListener('blur', function() {
+        clearTimeout(saveTimeout);
+        localStorage.setItem(notesStorage, notesWidget.value);
+        showSavedIndicator();
+    });
+    
+    function showSavedIndicator() {
+        savedIndicator.classList.add('show');
+        setTimeout(() => {
+            savedIndicator.classList.remove('show');
+        }, 2000);
+    }
+</script>
 
 <form id="doughForm">
     <div class="form-row">
