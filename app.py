@@ -98,11 +98,13 @@ def init_db():
 		yeast REAL DEFAULT 0,
 		oil REAL DEFAULT 0,
 		sugar REAL DEFAULT 0,
+		salt REAL DEFAULT 0,
 		cakeFlourBought REAL DEFAULT 0,
 		breadFlourBought REAL DEFAULT 0,
 		yeastBought REAL DEFAULT 0,
 		oilBought REAL DEFAULT 0,
 		sugarBought REAL DEFAULT 0,
+		saltBought REAL DEFAULT 0,
 		pizzaSales REAL DEFAULT 0,
 		normalSales REAL DEFAULT 0,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1079,19 +1081,21 @@ def add_bakery_dough():
 		yeast = float(data.get('yeast', 0))
 		oil = float(data.get('oil', 0))
 		sugar = float(data.get('sugar', 0))
+		salt = float(data.get('salt', 0))
 		cake_flour_bought = float(data.get('cakeFlourBought', 0))
 		bread_flour_bought = float(data.get('breadFlourBought', 0))
 		yeast_bought = float(data.get('yeastBought', 0))
 		oil_bought = float(data.get('oilBought', 0))
 		sugar_bought = float(data.get('sugarBought', 0))
+		salt_bought = float(data.get('saltBought', 0))
 		
 		c.execute("""INSERT INTO bakeryDough
-					(date, cakeFlour, breadFlour, yeast, oil, sugar,
-					 cakeFlourBought, breadFlourBought, yeastBought, oilBought, sugarBought,
+					(date, cakeFlour, breadFlour, yeast, oil, sugar, salt,
+					 cakeFlourBought, breadFlourBought, yeastBought, oilBought, sugarBought, saltBought,
 					 pizzaSales, normalSales)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-				 (date_str, cake_flour, bread_flour, yeast, oil, sugar,
-				  cake_flour_bought, bread_flour_bought, yeast_bought, oil_bought, sugar_bought,
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+				 (date_str, cake_flour, bread_flour, yeast, oil, sugar, salt,
+				  cake_flour_bought, bread_flour_bought, yeast_bought, oil_bought, sugar_bought, salt_bought,
 				  pizza_sales, normal_sales))
 		
 		conn.commit()
