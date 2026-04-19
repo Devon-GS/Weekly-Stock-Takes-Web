@@ -343,13 +343,13 @@
         {% for record in reversed_records %}
             {% if loop.index0 > 0 %}
                 {% set previous_record = reversed_records[loop.index0 - 1] %}
-				{% set total_dough = (record.get('pizzaSales', 0) + record.get('normalSales', 0) ) %}
-                {% set cake_used = ((previous_record.cakeFlour + record.get('cakeFlourBought', 0)) - record.cakeFlour) / record.get('normalSales', 0) %}
-                {% set bread_used = ((previous_record.breadFlour + record.get('breadFlourBought', 0)) - record.breadFlour) / record.get('pizzaSales', 0) %}
-                {% set yeast_used = ((previous_record.yeast + record.get('yeastBought', 0)) - record.yeast) / total_dough %}
-                {% set oil_used = ((previous_record.oil + record.get('oilBought', 0)) - record.oil) / total_dough %}
-                {% set sugar_used = ((previous_record.sugar + record.get('sugarBought', 0)) - record.sugar) / total_dough %}
-                {% set salt_used = ((previous_record.get('salt', 0) + record.get('saltBought', 0)) - record.get('salt', 0)) / total_dough %}
+				{% set total_dough = (record.get('pizzaSales', 0) + record.get('normalSales', 0)) %}
+                {% set cake_used = ((previous_record.cakeFlour + record.get('cakeFlourBought', 0)) - record.cakeFlour) / record.get('normalSales', 0) if record.get('normalSales', 0) > 0 else 0 %}
+                {% set bread_used = ((previous_record.breadFlour + record.get('breadFlourBought', 0)) - record.breadFlour) / record.get('pizzaSales', 0) if record.get('pizzaSales', 0) > 0 else 0 %}
+                {% set yeast_used = ((previous_record.yeast + record.get('yeastBought', 0)) - record.yeast) / total_dough if total_dough > 0 else 0 %}
+                {% set oil_used = ((previous_record.oil + record.get('oilBought', 0)) - record.oil) / total_dough if total_dough > 0 else 0 %}
+                {% set sugar_used = ((previous_record.sugar + record.get('sugarBought', 0)) - record.sugar) / total_dough if total_dough > 0 else 0 %}
+                {% set salt_used = ((previous_record.get('salt', 0) + record.get('saltBought', 0)) - record.get('salt', 0)) / total_dough if total_dough > 0 else 0 %}
                 
         <tr>
             <td>{{ record.date }}</td>
