@@ -324,7 +324,14 @@ def index():
 @app.route('/milk')
 def milk_page():
 	"""Milk usage page"""
-	records = get_table_data('milkUsage')
+	conn = get_db_connection()
+	c = conn.cursor()
+	c.execute("""SELECT * FROM milkUsage ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
+	records = c.fetchall()
+	conn.close()
 	
 	# Get the latest milk usage entry to find the date range for coffee calculations
 	conn = get_db_connection()
@@ -467,7 +474,15 @@ def delete_milk_entry(record_id):
 @app.route('/bean')
 def bean_page():
 	"""Bean coffee page"""
-	records = get_table_data('coffeeBean')
+	# Get records with proper date sorting (DD/MM/YYYY format stored as text)
+	conn = get_db_connection()
+	c = conn.cursor()
+	c.execute("""SELECT * FROM coffeeBean ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
+	records = c.fetchall()
+	conn.close()
 	
 	# Get the latest bean coffee entry to find the date range for sales calculations
 	conn = get_db_connection()
@@ -612,7 +627,14 @@ def delete_bean_entry(record_id):
 @app.route('/lavazza')
 def lavazza_page():
 	"""Lavazza coffee page"""
-	records = get_table_data('lavazza')
+	conn = get_db_connection()
+	c = conn.cursor()
+	c.execute("""SELECT * FROM lavazza ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
+	records = c.fetchall()
+	conn.close()
 	
 	# Calculate deliveries from imported purchases data
 	conn = get_db_connection()
@@ -796,7 +818,14 @@ def delete_lavazza_entry(record_id):
 @app.route('/sugar')
 def sugar_page():
 	"""Sugar and sweetener page"""
-	records = get_table_data('coffeeSugar')
+	conn = get_db_connection()
+	c = conn.cursor()
+	c.execute("""SELECT * FROM coffeeSugar ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
+	records = c.fetchall()
+	conn.close()
 	
 	# Get weight settings
 	sugar_weight_settings = get_settings('sugar_weight')
@@ -1024,10 +1053,12 @@ def bakery_dough():
 	"""Bakery dough tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("SELECT * FROM bakeryDough ORDER BY date DESC")
+	c.execute("""SELECT * FROM bakeryDough ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
-	print(records)
 	return render_template('bakery/dough.html', records=records)
 
 @app.route('/bakery/egg-wash')
@@ -1035,7 +1066,10 @@ def bakery_egg_wash():
 	"""Bakery egg wash tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("SELECT * FROM bakeryEggWash ORDER BY date DESC")
+	c.execute("""SELECT * FROM bakeryEggWash ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
 	return render_template('bakery/egg-wash.html', records=records)
@@ -1045,7 +1079,10 @@ def bakery_mayo():
 	"""Bakery mayo tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("SELECT * FROM bakeryMayo ORDER BY date DESC")
+	c.execute("""SELECT * FROM bakeryMayo ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
 	return render_template('bakery/mayo.html', records=records)
@@ -1055,7 +1092,10 @@ def bakery_sweet_chilli():
 	"""Bakery sweet chilli tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("SELECT * FROM bakerySweetChilli ORDER BY date DESC")
+	c.execute("""SELECT * FROM bakerySweetChilli ORDER BY 
+		SUBSTR(date, 7, 4) DESC, 
+		SUBSTR(date, 4, 2) DESC, 
+		SUBSTR(date, 1, 2) DESC""")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
 	return render_template('bakery/sweet-chilli.html', records=records)
