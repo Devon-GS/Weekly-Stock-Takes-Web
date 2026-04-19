@@ -339,10 +339,9 @@
         </tr>
     </thead>
     <tbody>
-        {% set reversed_records = records|reverse|list %}
-        {% for record in reversed_records %}
-            {% if loop.index0 > 0 %}
-                {% set previous_record = reversed_records[loop.index0 - 1] %}
+        {% for record in records %}
+            {% if loop.index0 < records|length - 1 %}
+                {% set previous_record = records[loop.index0 + 1] %}
 				{% set total_dough = (record.get('pizzaSales', 0) + record.get('normalSales', 0)) %}
                 {% set cake_used = ((previous_record.cakeFlour + record.get('cakeFlourBought', 0)) - record.cakeFlour) / record.get('normalSales', 0) if record.get('normalSales', 0) > 0 else 0 %}
                 {% set bread_used = ((previous_record.breadFlour + record.get('breadFlourBought', 0)) - record.breadFlour) / record.get('pizzaSales', 0) if record.get('pizzaSales', 0) > 0 else 0 %}
