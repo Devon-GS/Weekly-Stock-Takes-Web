@@ -292,20 +292,20 @@
         {% for record in records %}
         <tr>
             <td>{{ record.date }}</td>
-            <td>{{ "%.2f"|format(record.cakeFlour) }}</td>
-            <td>{{ "%.2f"|format(record.breadFlour) }}</td>
-            <td>{{ "%.2f"|format(record.yeast) }}</td>
-            <td>{{ "%.2f"|format(record.oil) }}</td>
-            <td>{{ "%.2f"|format(record.sugar) }}</td>
-            <td>{{ "%.2f"|format(record.get('salt', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('cakeFlourBought', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('breadFlourBought', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('yeastBought', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('oilBought', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('sugarBought', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('saltBought', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('pizzaSales', 0)) }}</td>
-            <td>{{ "%.2f"|format(record.get('normalSales', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.cakeFlour) }}</td>
+            <td>{{ "{:,.2f}".format(record.breadFlour) }}</td>
+            <td>{{ "{:,.2f}".format(record.yeast) }}</td>
+            <td>{{ "{:,.2f}".format(record.oil) }}</td>
+            <td>{{ "{:,.2f}".format(record.sugar) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('salt', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('cakeFlourBought', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('breadFlourBought', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('yeastBought', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('oilBought', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('sugarBought', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('saltBought', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('pizzaSales', 0)) }}</td>
+            <td>{{ "{:,.2f}".format(record.get('normalSales', 0)) }}</td>
             <td>
                 <button type="button" class="btn-small btn-danger"
                     onclick="deleteRecord('/api/bakery/dough/{{ record.id }}', {{ record.id }})">Delete</button>
