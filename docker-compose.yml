@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: weekly-stocktake-image
+    container_name: weekly-stocktake-app
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      - weekly_stocktake_data:/app/Database/
+
+volumes:
+  weekly_stocktake_data:
+
