@@ -2138,4 +2138,4 @@ def get_import_data(data_type, category, date_from, date_to):
 
 if __name__ == '__main__':
 	init_db()
-	app.run(debug=True, port=6000)
+	app.run(debug=True, port=5000)
