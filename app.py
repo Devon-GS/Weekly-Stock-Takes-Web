@@ -13,7 +13,7 @@ from io import StringIO
 import json
 
 app = Flask(__name__)
-DATABASE = 'Database/stocktakes.db'
+DATABASE = os.environ.get('DB_PATH', 'stocktakes.db')
 
 # ==================== DATABASE INITIALIZATION ====================
 
