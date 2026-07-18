@@ -4,7 +4,7 @@ A web-based coffee shop inventory management system
 """
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import sqlite3
 import os
 from dateutil import parser
@@ -154,17 +154,27 @@ def get_db_connection():
 def format_date(date_str):
 	"""Format date string strictly to YYYY-MM-DD"""
 	try:
-		# Check if it's already in YYYY-MM-DD format
+		date_str = str(date_str).strip()
+		
+		# 1. Handle Excel Serial Dates (e.g., 46203)
+		if date_str.isdigit() and len(date_str) >= 4:
+			serial = int(date_str)
+			# Excel epoch starts at Dec 30, 1899 (due to Excel's 1900 leap year bug)
+			base_date = datetime(1899, 12, 30)
+			parsed_date = base_date + timedelta(days=serial)
+			return parsed_date.strftime('%Y-%m-%d')
+			
+		# 2. Check if it's already in YYYY-MM-DD format
 		if '-' in date_str and len(date_str) == 10:
 			parts = date_str.split('-')
 			if len(parts[0]) == 4 and len(parts[1]) == 2 and len(parts[2]) == 2:
 				return date_str  # Already in YYYY-MM-DD format
 		
-		# HTML date input is YYYY-MM-DD, parse without dayfirst
+		# 3. HTML date input is YYYY-MM-DD, parse without dayfirst
 		if '-' in date_str and date_str.count('-') == 2:
 			parsed_date = parser.parse(date_str, dayfirst=False)
 		else:
-			# CSV dates might be in different formats, use dayfirst to guess
+			# 4. CSV dates might be in different formats, use dayfirst to guess
 			parsed_date = parser.parse(date_str, dayfirst=True)
 		
 		return parsed_date.strftime('%Y-%m-%d')
@@ -590,6 +600,7 @@ def get_bean_coffee_sold_for_date(date):
 						for coffee_desc in bean_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
 								if last_date_obj <= row_date <= current_date_obj:
+									print('Dec ', row['description'], last_date, row_date, current_date_obj)
 									coffees_from_csv += row['quantity']
 								break
 					except Exception as e:
