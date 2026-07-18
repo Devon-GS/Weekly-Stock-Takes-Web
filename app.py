@@ -337,7 +337,19 @@ def milk_page():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM milkUsage ORDER BY date DESC")
-	records = c.fetchall()
+
+	# Convert rows to dictionaries and reformat the date for the frontend
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			# Convert YYYY-MM-DD from DB to DD/MM/YYYY for the template
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass  # Fallback to original if parsing fails for any reason
+		records.append(row_dict)
+
 	conn.close()
 	
 	# Get the latest milk usage entry to find the date range for coffee calculations
@@ -360,7 +372,6 @@ def milk_page():
 				
 				try:
 					# Find the next date after the last stock take
-					from datetime import datetime, timedelta
 					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
@@ -483,7 +494,19 @@ def bean_page():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM coffeeBean ORDER BY date DESC")
-	records = c.fetchall()
+	
+	# Convert rows to dictionaries and reformat the date for the frontend
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			# Convert YYYY-MM-DD from DB to DD/MM/YYYY for the template
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass  # Fallback to original if parsing fails for any reason
+		records.append(row_dict)
+
 	conn.close()
 	
 	# Get the latest bean coffee entry to find the date range for sales calculations
@@ -505,7 +528,6 @@ def bean_page():
 				bean_settings = get_settings('bean')
 				
 				try:
-					from datetime import datetime
 					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
@@ -631,7 +653,19 @@ def lavazza_page():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM lavazza ORDER BY date DESC")
-	records = c.fetchall()
+	
+	# Convert rows to dictionaries and reformat the date for the frontend
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			# Convert YYYY-MM-DD from DB to DD/MM/YYYY for the template
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass  # Fallback to original if parsing fails for any reason
+		records.append(row_dict)
+
 	conn.close()
 	
 	# Calculate deliveries from imported purchases data
@@ -668,7 +702,6 @@ def lavazza_page():
 				lavazza_settings = get_settings('lavazza')
 				
 				try:
-					from datetime import datetime
 					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
@@ -817,7 +850,19 @@ def sugar_page():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM coffeeSugar ORDER BY date DESC")
-	records = c.fetchall()
+	
+	# Convert rows to dictionaries and reformat the date for the frontend
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			# Convert YYYY-MM-DD from DB to DD/MM/YYYY for the template
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass  # Fallback to original if parsing fails for any reason
+		records.append(row_dict)
+
 	conn.close()
 	
 	# Get weight settings
@@ -845,7 +890,6 @@ def sugar_page():
 				sugar_settings = get_settings('sugar')
 				
 				try:
-					from datetime import datetime
 					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
@@ -1045,7 +1089,17 @@ def bakery_dough():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM bakeryDough ORDER BY date DESC")
-	records = [dict(row) for row in c.fetchall()]
+	
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass
+		records.append(row_dict)
+		
 	conn.close()
 	return render_template('bakery/dough.html', records=records)
 
@@ -1055,7 +1109,17 @@ def bakery_egg_wash():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM bakeryEggWash ORDER BY date DESC")
-	records = [dict(row) for row in c.fetchall()]
+	
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass
+		records.append(row_dict)
+		
 	conn.close()
 	return render_template('bakery/egg-wash.html', records=records)
 
@@ -1065,7 +1129,17 @@ def bakery_mayo():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM bakeryMayo ORDER BY date DESC")
-	records = [dict(row) for row in c.fetchall()]
+	
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass
+		records.append(row_dict)
+		
 	conn.close()
 	return render_template('bakery/mayo.html', records=records)
 
@@ -1075,7 +1149,17 @@ def bakery_sweet_chilli():
 	conn = get_db_connection()
 	c = conn.cursor()
 	c.execute("SELECT * FROM bakerySweetChilli ORDER BY date DESC")
-	records = [dict(row) for row in c.fetchall()]
+	
+	records = []
+	for row in c.fetchall():
+		row_dict = dict(row)
+		try:
+			date_obj = datetime.strptime(row_dict['date'], '%Y-%m-%d')
+			row_dict['date'] = date_obj.strftime('%d/%m/%Y')
+		except (ValueError, TypeError):
+			pass
+		records.append(row_dict)
+		
 	conn.close()
 	return render_template('bakery/sweet-chilli.html', records=records)
 
