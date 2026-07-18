@@ -152,22 +152,22 @@ def get_db_connection():
 	return conn
 
 def format_date(date_str):
-	"""Format date string to DD/MM/YYYY"""
+	"""Format date string strictly to YYYY-MM-DD"""
 	try:
-		# Check if it's already in DD/MM/YYYY format
-		if '/' in date_str and date_str.count('/') == 2:
-			parts = date_str.split('/')
-			if len(parts[0]) == 2 and len(parts[1]) == 2 and len(parts[2]) == 4:
-				return date_str  # Already in DD/MM/YYYY format
+		# Check if it's already in YYYY-MM-DD format
+		if '-' in date_str and len(date_str) == 10:
+			parts = date_str.split('-')
+			if len(parts[0]) == 4 and len(parts[1]) == 2 and len(parts[2]) == 2:
+				return date_str  # Already in YYYY-MM-DD format
 		
-		# HTML date input is YYYY-MM-DD (ISO format), parse without dayfirst
+		# HTML date input is YYYY-MM-DD, parse without dayfirst
 		if '-' in date_str and date_str.count('-') == 2:
 			parsed_date = parser.parse(date_str, dayfirst=False)
 		else:
-			# CSV dates might be in different formats, use dayfirst
+			# CSV dates might be in different formats, use dayfirst to guess
 			parsed_date = parser.parse(date_str, dayfirst=True)
 		
-		return parsed_date.strftime('%d/%m/%Y')
+		return parsed_date.strftime('%Y-%m-%d')
 	except Exception as e:
 		return date_str
 
@@ -264,11 +264,11 @@ def get_matching_quantity(imported_rows, description, date_from, date_to):
 	total = 0
 	for row in imported_rows:
 		if description.lower() in row['description'].lower():
-			if 'date' in row:  # Sales data has dates
+			if 'date' in row and row['date']:  # Sales data has dates
 				try:
-					row_date = parser.parse(row['date'], dayfirst=True).date()
-					from_date = parser.parse(date_from, dayfirst=True).date()
-					to_date = parser.parse(date_to, dayfirst=True).date()
+					row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
+					from_date = datetime.strptime(date_from, '%Y-%m-%d').date()
+					to_date = datetime.strptime(date_to, '%Y-%m-%d').date()
 					if from_date <= row_date <= to_date:
 						total += row['quantity']
 				except:
@@ -326,10 +326,7 @@ def milk_page():
 	"""Milk usage page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM milkUsage ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM milkUsage ORDER BY date DESC")
 	records = c.fetchall()
 	conn.close()
 	
@@ -354,7 +351,7 @@ def milk_page():
 				try:
 					# Find the next date after the last stock take
 					from datetime import datetime, timedelta
-					last_date_obj = parser.parse(last_date, dayfirst=True).date()
+					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
 					# Sum all coffee sales between last date and today
@@ -362,7 +359,7 @@ def milk_page():
 						for coffee_desc in milk_settings:
 							if coffee_desc.lower() in row['description'].lower():
 								try:
-									row_date = parser.parse(row['date'], dayfirst=True).date()
+									row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 									if row_date >= last_date_obj:
 										coffees_from_csv += row['quantity']
 								except:
@@ -432,17 +429,16 @@ def get_coffee_sold_for_date(date):
 			milk_settings = get_settings('milk')
 			
 			try:
-				# last_date is in DD/MM/YYYY format from database, parse explicitly
-				last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
-				# HTML date input is always YYYY-MM-DD format
-				current_date_obj = parser.parse(date, dayfirst=False).date()
+				# last_date is in YYYY-MM-DD format from database
+				last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
+				current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 				
 				# Sum all coffee sales between last date and current date
 				for row in imported_rows:
 					if not row['date']:
 						continue
 					try:
-						row_date = parser.parse(row['date'], dayfirst=True).date()
+						row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 						
 						for coffee_desc in milk_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
@@ -474,13 +470,9 @@ def delete_milk_entry(record_id):
 @app.route('/bean')
 def bean_page():
 	"""Bean coffee page"""
-	# Get records with proper date sorting (DD/MM/YYYY format stored as text)
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM coffeeBean ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM coffeeBean ORDER BY date DESC")
 	records = c.fetchall()
 	conn.close()
 	
@@ -503,9 +495,8 @@ def bean_page():
 				bean_settings = get_settings('bean')
 				
 				try:
-					# Parse the last date (DD/MM/YYYY format from DB)
 					from datetime import datetime
-					last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
 					# Sum all coffee sales between last date and today
@@ -513,7 +504,7 @@ def bean_page():
 						for coffee_desc in bean_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
 								try:
-									row_date = parser.parse(row['date'], dayfirst=True).date()
+									row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 									if row_date > last_date_obj:
 										coffees_from_csv += row['quantity']
 								except:
@@ -562,7 +553,7 @@ def get_bean_coffee_sold_for_date(date):
 	try:
 		conn = get_db_connection()
 		c = conn.cursor()
-		
+
 		# Get the latest bean coffee entry before this date
 		c.execute("SELECT date FROM coffeeBean WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
 		previous_record = c.fetchone()
@@ -585,17 +576,16 @@ def get_bean_coffee_sold_for_date(date):
 			bean_settings = get_settings('bean')
 			
 			try:
-				# last_date is in DD/MM/YYYY format from database, parse explicitly
-				last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
-				# HTML date input is always YYYY-MM-DD format
-				current_date_obj = parser.parse(date, dayfirst=False).date()
+				# last_date is in YYYY-MM-DD format from database
+				last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
+				current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 				
 				# Sum all coffee sales between last date and current date
 				for row in imported_rows:
 					if not row['date']:
 						continue
 					try:
-						row_date = parser.parse(row['date'], dayfirst=True).date()
+						row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 						
 						for coffee_desc in bean_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
@@ -629,10 +619,7 @@ def lavazza_page():
 	"""Lavazza coffee page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM lavazza ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM lavazza ORDER BY date DESC")
 	records = c.fetchall()
 	conn.close()
 	
@@ -670,9 +657,8 @@ def lavazza_page():
 				lavazza_settings = get_settings('lavazza')
 				
 				try:
-					# Parse the last date (DD/MM/YYYY format from DB)
 					from datetime import datetime
-					last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
 					# Sum all coffee sales between last date and today
@@ -680,7 +666,7 @@ def lavazza_page():
 						for coffee_desc in lavazza_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
 								try:
-									row_date = parser.parse(row['date'], dayfirst=True).date()
+									row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 									if row_date > last_date_obj:
 										coffees_from_csv += row['quantity']
 								except:
@@ -747,17 +733,16 @@ def get_lavazza_coffee_sold_for_date(date):
 			lavazza_settings = get_settings('lavazza')
 			
 			try:
-				# last_date is in DD/MM/YYYY format from database, parse explicitly
-				last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
-				# HTML date input is always YYYY-MM-DD format
-				current_date_obj = parser.parse(date, dayfirst=False).date()
+				# last_date is in YYYY-MM-DD format from database
+				last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
+				current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 				
 				# Sum all coffee sales between last date and current date
 				for row in imported_rows:
 					if not row['date']:
 						continue
 					try:
-						row_date = parser.parse(row['date'], dayfirst=True).date()
+						row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 						
 						for coffee_desc in lavazza_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
@@ -820,10 +805,7 @@ def sugar_page():
 	"""Sugar and sweetener page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM coffeeSugar ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM coffeeSugar ORDER BY date DESC")
 	records = c.fetchall()
 	conn.close()
 	
@@ -852,9 +834,8 @@ def sugar_page():
 				sugar_settings = get_settings('sugar')
 				
 				try:
-					# Parse the last date (DD/MM/YYYY format from DB)
 					from datetime import datetime
-					last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+					last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 					today = datetime.now().date()
 					
 					# Sum all coffee sales between last date and today
@@ -862,7 +843,7 @@ def sugar_page():
 						for coffee_desc in sugar_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
 								try:
-									row_date = parser.parse(row['date'], dayfirst=True).date()
+									row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 									if row_date > last_date_obj:
 										coffees_from_csv += row['quantity']
 								except:
@@ -949,17 +930,16 @@ def get_sugar_coffee_sold_for_date(date):
 			sugar_settings = get_settings('sugar')
 			
 			try:
-				# last_date is in DD/MM/YYYY format from database, parse explicitly
-				last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
-				# HTML date input is always YYYY-MM-DD format
-				current_date_obj = parser.parse(date, dayfirst=False).date()
+				# last_date is in YYYY-MM-DD format from database
+				last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
+				current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 				
 				# Sum all coffee sales between last date and current date
 				for row in imported_rows:
 					if not row['date']:
 						continue
 					try:
-						row_date = parser.parse(row['date'], dayfirst=True).date()
+						row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 						
 						for coffee_desc in sugar_settings:
 							if coffee_desc and coffee_desc.lower() in row['description'].lower():
@@ -1053,10 +1033,7 @@ def bakery_dough():
 	"""Bakery dough tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM bakeryDough ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM bakeryDough ORDER BY date DESC")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
 	return render_template('bakery/dough.html', records=records)
@@ -1066,10 +1043,7 @@ def bakery_egg_wash():
 	"""Bakery egg wash tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM bakeryEggWash ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM bakeryEggWash ORDER BY date DESC")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
 	return render_template('bakery/egg-wash.html', records=records)
@@ -1079,10 +1053,7 @@ def bakery_mayo():
 	"""Bakery mayo tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM bakeryMayo ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM bakeryMayo ORDER BY date DESC")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
 	return render_template('bakery/mayo.html', records=records)
@@ -1092,10 +1063,7 @@ def bakery_sweet_chilli():
 	"""Bakery sweet chilli tracking page"""
 	conn = get_db_connection()
 	c = conn.cursor()
-	c.execute("""SELECT * FROM bakerySweetChilli ORDER BY 
-		SUBSTR(date, 7, 4) DESC, 
-		SUBSTR(date, 4, 2) DESC, 
-		SUBSTR(date, 1, 2) DESC""")
+	c.execute("SELECT * FROM bakerySweetChilli ORDER BY date DESC")
 	records = [dict(row) for row in c.fetchall()]
 	conn.close()
 	return render_template('bakery/sweet-chilli.html', records=records)
@@ -1164,21 +1132,18 @@ def get_dough_purchases_for_date(date):
 		conn = get_db_connection()
 		c = conn.cursor()
 		
-		# Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
-		current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
-		
 		# Get the latest dough entry before this date
-		c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (current_date_formatted,))
+		c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
 		previous_record = c.fetchone()
 		
 		# Determine the start date for the range
 		if previous_record:
 			last_date = previous_record['date']
-			last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 		else:
-			last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime("1900-01-01", '%Y-%m-%d').date()
 		
-		current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+		current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 		
 		purchases = {'cakeFlourBought': 0, 'breadFlourBought': 0, 'yeastBought': 0, 'oilBought': 0, 'sugarBought': 0, 'saltBought': 0}
 		
@@ -1252,18 +1217,15 @@ def get_dough_sales_for_date(date):
 		# Get the latest dough entry before this date
 		c.execute("SELECT date FROM bakeryDough WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
 		previous_record = c.fetchone()
-
-		# Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
-		current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
 		
 		# Determine the start date for the range
 		if previous_record:
 			last_date = previous_record['date']
-			last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 		else:
-			last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime("1900-01-01", '%Y-%m-%d').date()
 		
-		current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+		current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 		
 		pizza_sales = 0
 		normal_sales = 0
@@ -1283,10 +1245,9 @@ def get_dough_sales_for_date(date):
 					continue
 				
 				try:
-					row_date = parser.parse(row['date'], dayfirst=True).date()
+					row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 					
 					# Check if date is in range
-					# print(last_date_obj, row_date, current_date_obj)
 					if last_date_obj <= row_date <= current_date_obj:
 						description_lower = row['description'].lower()
 						quantity = row['quantity']
@@ -1735,9 +1696,6 @@ def get_egg_pies_sold_for_date(date):
 		conn = get_db_connection()
 		c = conn.cursor()
 		
-		# Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
-		current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
-		
 		# Get the latest egg wash entry before this date
 		c.execute("SELECT date FROM bakeryEggWash WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
 		previous_record = c.fetchone()
@@ -1745,11 +1703,11 @@ def get_egg_pies_sold_for_date(date):
 		# Determine the start date for the range
 		if previous_record:
 			last_date = previous_record['date']
-			last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 		else:
-			last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime("1900-01-01", '%Y-%m-%d').date()
 		
-		current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+		current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 		
 		total_pies = 0
 		
@@ -1767,7 +1725,7 @@ def get_egg_pies_sold_for_date(date):
 					continue
 				
 				try:
-					row_date = parser.parse(row['date'], dayfirst=True).date()
+					row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 					
 					# Check if date is in range
 					if last_date_obj <= row_date <= current_date_obj:
@@ -1836,9 +1794,6 @@ def get_mayo_pies_sold_for_date(date):
 		conn = get_db_connection()
 		c = conn.cursor()
 		
-		# Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
-		current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
-		
 		# Get the latest mayo entry before this date
 		c.execute("SELECT date FROM bakeryMayo WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
 		previous_record = c.fetchone()
@@ -1846,11 +1801,11 @@ def get_mayo_pies_sold_for_date(date):
 		# Determine the start date for the range
 		if previous_record:
 			last_date = previous_record['date']
-			last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 		else:
-			last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime("1900-01-01", '%Y-%m-%d').date()
 		
-		current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+		current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 		
 		total_pies = 0
 		
@@ -1868,7 +1823,7 @@ def get_mayo_pies_sold_for_date(date):
 					continue
 				
 				try:
-					row_date = parser.parse(row['date'], dayfirst=True).date()
+					row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 					
 					# Check if date is in range
 					if last_date_obj <= row_date <= current_date_obj:
@@ -1937,9 +1892,6 @@ def get_sweet_chilli_pies_sold_for_date(date):
 		conn = get_db_connection()
 		c = conn.cursor()
 		
-		# Convert incoming date from YYYY-MM-DD to DD/MM/YYYY format for database comparison
-		current_date_formatted = datetime.strptime(date, '%Y-%m-%d').strftime('%d/%m/%Y')
-		
 		# Get the latest sweet chilli entry before this date
 		c.execute("SELECT date FROM bakerySweetChilli WHERE date < ? ORDER BY date DESC LIMIT 1", (date,))
 		previous_record = c.fetchone()
@@ -1947,11 +1899,11 @@ def get_sweet_chilli_pies_sold_for_date(date):
 		# Determine the start date for the range
 		if previous_record:
 			last_date = previous_record['date']
-			last_date_obj = datetime.strptime(last_date, '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
 		else:
-			last_date_obj = datetime.strptime("01/01/1900", '%d/%m/%Y').date()
+			last_date_obj = datetime.strptime("1900-01-01", '%Y-%m-%d').date()
 		
-		current_date_obj = datetime.strptime(current_date_formatted, '%d/%m/%Y').date()
+		current_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
 		
 		total_pies = 0
 		
@@ -1969,7 +1921,7 @@ def get_sweet_chilli_pies_sold_for_date(date):
 					continue
 				
 				try:
-					row_date = parser.parse(row['date'], dayfirst=True).date()
+					row_date = datetime.strptime(row['date'], '%Y-%m-%d').date()
 					
 					# Check if date is in range
 					if last_date_obj <= row_date <= current_date_obj:
