@@ -458,28 +458,35 @@
             ]
         };
 
-        // let currentDepartment = 'coffee-milk';
+        let currentDepartment = null;
         let activeTabs = {
             'coffee-milk': '/milk',
             'bakery': '/bakery/dough'
         };
 
-        function updateDepartmentTabs() {
-            const tabsContainer = document.getElementById('departmentTabs');
-            const tabs = departmentTabs[currentDepartment];
-            
-            tabsContainer.innerHTML = '';
-            tabs.forEach(tab => {
-                const a = document.createElement('a');
-                a.href = tab.path;
-                a.textContent = tab.name;
-                if (tab.path === activeTabs[currentDepartment]) {
-                    a.classList.add('active');
-                }
-                tabsContainer.appendChild(a);
-            });
-        }
-
+		function updateDepartmentTabs() {
+		const tabsContainer = document.getElementById('departmentTabs');
+		
+		// Hide tabs container completely if not in a department
+		if (!currentDepartment) {
+			tabsContainer.style.display = 'none';
+			return;
+		}
+		
+		tabsContainer.style.display = 'flex'; // Show tabs container
+		const tabs = departmentTabs[currentDepartment];
+		
+		tabsContainer.innerHTML = '';
+		tabs.forEach(tab => {
+			const a = document.createElement('a');
+			a.href = tab.path;
+			a.textContent = tab.name;
+			if (tab.path === activeTabs[currentDepartment]) {
+				a.classList.add('active');
+			}
+			tabsContainer.appendChild(a);
+		});
+}
         function switchDepartment(dept) {
             currentDepartment = dept;
             
@@ -506,24 +513,29 @@
             });
         });
 
-        // Initialize tabs based on current path
-        const currentPath = window.location.pathname;
-        
-        // Determine current department based on path
-        if (currentPath.startsWith('/bakery')) {
-            currentDepartment = 'bakery';
-            activeTabs['bakery'] = currentPath;
-        } else if (currentPath === '/milk' || currentPath === '/bean' || currentPath === '/lavazza' || currentPath === '/sugar') {
-            currentDepartment = 'coffee-milk';
-            activeTabs['coffee-milk'] = currentPath;
-        }
+      // Initialize tabs based on current path
+		const currentPath = window.location.pathname;
 
-        // Update initial state
-        document.querySelectorAll('.dept-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-department="${currentDepartment}"]`).classList.add('active');
-        updateDepartmentTabs();
+		// Determine current department based on path
+		if (currentPath.startsWith('/bakery')) {
+			currentDepartment = 'bakery';
+			activeTabs['bakery'] = currentPath;
+		} else if (['/milk', '/bean', '/lavazza', '/sugar', '/settings'].includes(currentPath)) {
+			currentDepartment = 'coffee-milk';
+			activeTabs['coffee-milk'] = currentPath;
+		}
+
+		// Update initial state
+		document.querySelectorAll('.dept-btn').forEach(btn => {
+			btn.classList.remove('active');
+		});
+
+		// Only highlight a button if we are currently inside a department
+		if (currentDepartment) {
+			document.querySelector(`[data-department="${currentDepartment}"]`).classList.add('active');
+		}
+
+		updateDepartmentTabs();
 
         function showAlert(message, type) {
             const alert = document.createElement('div');
