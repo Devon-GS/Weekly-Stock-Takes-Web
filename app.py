@@ -2235,6 +2235,48 @@ def get_sugar_data():
 	data = [dict(r) for r in records]
 	return jsonify(data)
 
+@app.route('/api/bakery/dough/data')
+def get_dough_data():
+	"""Get all bakery dough data as JSON"""
+	records = get_table_data('bakeryDough')
+	data = [dict(r) for r in records]
+	return jsonify(data)
+
+@app.route('/api/bakery/egg-wash/data')
+def get_egg_wash_data():
+	"""Get all bakery egg wash data as JSON"""
+	records = get_table_data('bakeryEggWash')
+	data = [dict(r) for r in records]
+	return jsonify(data)
+
+@app.route('/api/bakery/mayo/data')
+def get_mayo_data():
+	"""Get all bakery mayo data as JSON"""
+	records = get_table_data('bakeryMayo')
+	data = [dict(r) for r in records]
+	return jsonify(data)
+
+@app.route('/api/bakery/sweet-chilli/data')
+def get_sweet_chilli_data():
+	"""Get all bakery sweet chilli data as JSON"""
+	records = get_table_data('bakerySweetChilli')
+	data = [dict(r) for r in records]
+	return jsonify(data)
+
+@app.route('/api/settings/data')
+def get_all_settings_data():
+	"""Get all CSV settings data as JSON"""
+	records = get_table_data('csvSettings')
+	data = [dict(r) for r in records]
+	return jsonify(data)
+
+@app.route('/api/imported-data/data')
+def get_all_imported_data():
+	"""Get all imported CSV data as JSON"""
+	records = get_table_data('importedData')
+	data = [dict(r) for r in records]
+	return jsonify(data)
+
 # ==================== RUN SERVER ====================
 
 if __name__ == '__main__':
