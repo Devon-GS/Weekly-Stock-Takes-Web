@@ -1798,6 +1798,44 @@ def delete_bakery_sweet_chilli(record_id):
 	except Exception as e:
 		return jsonify({'success': False, 'error': str(e)}), 400
 	
+# ==================== NOTES ROUTES ====================
+
+@app.route('/api/notes/<page_name>', methods=['GET'])
+def get_note(page_name):
+	"""Get a saved note for a specific page"""
+	try:
+		conn = get_db_connection()
+		c = conn.cursor()
+		c.execute("SELECT content FROM pageNotes WHERE page_name = ?", (page_name,))
+		row = c.fetchone()
+		conn.close()
+		
+		return jsonify({'success': True, 'note': row['content'] if row else ""})
+	except Exception as e:
+		return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/notes/<page_name>', methods=['POST'])
+def save_note(page_name):
+	"""Save a note for a specific page"""
+	try:
+		data = request.json
+		content = data.get('note', '')
+		
+		conn = get_db_connection()
+		c = conn.cursor()
+		
+		# INSERT OR REPLACE will update the note if it already exists
+		c.execute("""INSERT OR REPLACE INTO pageNotes (page_name, content, updated_at)
+					 VALUES (?, ?, CURRENT_TIMESTAMP)""",
+				  (page_name, content))
+		
+		conn.commit()
+		conn.close()
+		
+		return jsonify({'success': True, 'message': 'Note saved'})
+	except Exception as e:
+		return jsonify({'success': False, 'error': str(e)}), 400
+	
 # ==================== SETTINGS ROUTES ====================
 
 @app.route('/settings')

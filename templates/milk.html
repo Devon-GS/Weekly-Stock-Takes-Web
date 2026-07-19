@@ -116,37 +116,62 @@
 {% block extra_js %}
 <script>
     // ==================== NOTES & GOALS FUNCTIONALITY ====================
-    const noteInput = document.getElementById('noteInput');
-    const savedIndicator = document.getElementById('savedIndicator');
-    const STORAGE_KEY = 'milk_page_note';
+	const noteInput = document.getElementById('noteInput');
+	const savedIndicator = document.getElementById('savedIndicator');
 
-    // Load saved note on page load
-    function loadNote() {
-        const savedNote = localStorage.getItem(STORAGE_KEY);
-        if (savedNote) {
-            noteInput.value = savedNote;
-        }
-    }
+	// Set name of the page
+	const PAGE_NAME = 'milk_page'; 
 
-    // Save note to localStorage
-    function saveNote() {
-        localStorage.setItem(STORAGE_KEY, noteInput.value);
+	let typingTimer; 
+	const DONE_TYPING_INTERVAL = 1000; // Wait 1 second after typing stops
 
-        // Show saved indicator
-        savedIndicator.style.display = 'inline-block';
-        setTimeout(() => {
-            savedIndicator.style.display = 'none';
-        }, 2000);
-    }
+	// Load note
+	async function loadNote() {
+		try {
+			const response = await fetch(`/api/notes/${PAGE_NAME}`);
+			const data = await response.json();
+			if (data.success && data.note) {
+				noteInput.value = data.note;
+			}
+		} catch (error) {
+			console.error("Failed to load note:", error);
+		}
+	}
 
-    // Save on input and blur
-    noteInput.addEventListener('input', saveNote);
-    noteInput.addEventListener('blur', saveNote);
+	// Save note
+	async function saveNoteToServer() {
+		try {
+			await fetch(`/api/notes/${PAGE_NAME}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ note: noteInput.value })
+			});
 
-    // Load note on page load
-    loadNote();
+			// Show "Saved!" indicator
+			savedIndicator.style.display = 'inline-block';
+			setTimeout(() => {
+				savedIndicator.style.display = 'none';
+			}, 2000);
+		} catch (error) {
+			console.error("Failed to save note:", error);
+		}
+	}
 
-    // ==================== COFFEE SOLD FUNCTIONALITY ====================
+	// Trigger save automatically
+	noteInput.addEventListener('input', () => {
+		clearTimeout(typingTimer);
+		typingTimer = setTimeout(saveNoteToServer, DONE_TYPING_INTERVAL);
+	});
+
+	noteInput.addEventListener('blur', () => {
+		clearTimeout(typingTimer);
+		saveNoteToServer();
+	});
+
+	// Load the note when the page opens
+	loadNote();
+
+    // ==================== FUNCTIONALITY ====================
     // Set today's date as default
     document.getElementById('date').valueAsDate = new Date();
 

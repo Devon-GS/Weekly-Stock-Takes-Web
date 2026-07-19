@@ -8,13 +8,9 @@
 <div style="margin-bottom: 25px;">
     <div style="display: flex; gap: 12px; align-items: flex-start;">
         <div style="flex: 1;">
-            <label for="lastCosting" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 14px;">Last Costing</label>
-            <input 
-                type="text" 
-                id="lastCosting" 
-                placeholder="Enter a Last Costing..." 
-                style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: inherit;"
-            >
+            <label for="noteInput" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 14px;">Last Costing</label>
+            <input type="text" id="noteInput" placeholder="Enter a Last Costing..." 
+                style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: inherit;">
         </div>
         <div style="padding-top: 32px; min-width: 60px; text-align: center;">
             <span id="savedIndicator" style="display: none; font-size: 12px; color: #2e7d32; font-weight: 600;">✓ Saved</span>
@@ -145,43 +141,63 @@
 
 {% block extra_js %}
 <script>
-    // Last Costing widget - localStorage persistence
-    const lastCostingInput = document.getElementById('lastCosting');
-    const savedIndicator = document.getElementById('savedIndicator');
-    let saveTimeout;
-    
-    // Load saved value from localStorage on page load
-    function loadLastCosting() {
-        const saved = localStorage.getItem('sugar_lastCosting');
-        if (saved) {
-            lastCostingInput.value = saved;
-        }
-    }
-    
-    // Show saved indicator briefly
-    function showSavedIndicator() {
-        savedIndicator.style.display = 'block';
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-            savedIndicator.style.display = 'none';
-        }, 2000);
-    }
-    
-    // Save to localStorage on input
-    lastCostingInput.addEventListener('input', () => {
-        localStorage.setItem('sugar_lastCosting', lastCostingInput.value);
-        showSavedIndicator();
-    });
-    
-    // Also save on blur for users who prefer explicit saves
-    lastCostingInput.addEventListener('blur', () => {
-        if (lastCostingInput.value) {
-            localStorage.setItem('sugar_lastCosting', lastCostingInput.value);
-        }
-    });
-    
-    // Load on page load
-    loadLastCosting();
+    // ==================== NOTES & GOALS FUNCTIONALITY ====================
+	const noteInput = document.getElementById('noteInput');
+	const savedIndicator = document.getElementById('savedIndicator');
+
+	// Set name of the page
+	const PAGE_NAME = 'sugar_page'; 
+
+	let typingTimer; 
+	const DONE_TYPING_INTERVAL = 1000; // Wait 1 second after typing stops
+
+	// Load note
+	async function loadNote() {
+		try {
+			const response = await fetch(`/api/notes/${PAGE_NAME}`);
+			const data = await response.json();
+			if (data.success && data.note) {
+				noteInput.value = data.note;
+			}
+		} catch (error) {
+			console.error("Failed to load note:", error);
+		}
+	}
+
+	// Save note
+	async function saveNoteToServer() {
+		try {
+			await fetch(`/api/notes/${PAGE_NAME}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ note: noteInput.value })
+			});
+
+			// Show "Saved!" indicator
+			savedIndicator.style.display = 'inline-block';
+			setTimeout(() => {
+				savedIndicator.style.display = 'none';
+			}, 2000);
+		} catch (error) {
+			console.error("Failed to save note:", error);
+		}
+	}
+
+	// Trigger save automatically
+	noteInput.addEventListener('input', () => {
+		clearTimeout(typingTimer);
+		typingTimer = setTimeout(saveNoteToServer, DONE_TYPING_INTERVAL);
+	});
+
+	noteInput.addEventListener('blur', () => {
+		clearTimeout(typingTimer);
+		saveNoteToServer();
+	});
+
+	// Load the note when the page opens
+	loadNote();
+
+	// ==================== FUNCTIONALITY ====================
     
     // Set today's date as default
     document.getElementById('date').valueAsDate = new Date();
